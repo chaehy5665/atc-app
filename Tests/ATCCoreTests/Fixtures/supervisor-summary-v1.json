@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "at": "2026-09-29T17:03:16.139Z",
+  "master": "caution",
+  "counts": { "warning": 0, "caution": 4, "advisory": 9 },
+  "pending": { "dispatch": 2, "humanCheck": 1, "tool": 0 },
+  "fuel": {
+    "label": "account-a",
+    "windows": [
+      { "name": "5h", "pct": 62.5, "resetsAt": "2026-09-29T20:00:00Z" },
+      { "name": "7d", "pct": 31, "resetsAt": "2026-10-03T09:00:00Z" }
+    ]
+  },
+  "rts": { "result": "done", "at": "2026-09-29T15:40:00Z", "from": "aaaaaaa", "to": "bbbbbbb" },
+  "working": { "aircraft": 3, "control": 1 },
+  "needsYou": ["TEAM_K"],
+  "futureField": { "ignored": true }
+}

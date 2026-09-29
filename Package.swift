@@ -8,7 +8,7 @@ var products: [Product] = [
 var targets: [Target] = [
     // Foundation only: builds and tests on Linux.
     .target(name: "ATCCore"),
-    .testTarget(name: "ATCCoreTests", dependencies: ["ATCCore"]),
+    .testTarget(name: "ATCCoreTests", dependencies: ["ATCCore"], resources: [.copy("Fixtures")]),
 ]
 
 // AppKit app: only declared on macOS, so the Linux build never sees it.
