@@ -13,6 +13,7 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
 
 ## 검증
 
+- PR은 CI의 `mac`·`linux` 두 잡이 모두 초록이어야 한다. Mac 체크리스트는 화면·소리·알림 같은 실행 동작용으로 남는다.
 - **순수 코어(`ATCCore`, Foundation만)**는 Linux에서 Docker로 빌드·테스트한다. 호스트에 Swift가 없다. 명령은 `Tools/test-linux.sh`(`swift build`, `swift test`, 고정한 `swift` 이미지. N0에서 정한다).
 - **앱 타깃(AppKit·SwiftUI)**은 Linux에서 빌드할 수 없다. PR 본문에 "Mac에서 빌드·화면 확인 안 함"을 적고, 무엇을 보면 되는지 목록으로 남긴다. SUPERVISOR가 머지한 뒤 Mac에서 `Tools/build-app.sh`로 확인한다.
 - 로직은 코어에 두고 테스트한다. 앱 타깃에는 배치와 시스템 호출만 둔다.
