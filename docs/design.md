@@ -68,14 +68,14 @@ Related, in the atc repository: [docs/mac-app.md](https://github.com/chaehy5665/
 
 **Non-goals for v1**
 
-- No writes from the app's own code: no ACK, approve, reject or switch sent by Swift. That needs an auth design first (section 7, N5). The atc web UI hosted in the atc window (N7) is the browser client in a different frame and keeps the browser's access model (section 10.3, D9).
-- No new server state, no telemetry, and no network use beyond the configured atc URL.
+- No writes from the app's own code to atc: no ACK, approve, reject or switch sent by Swift. That needs an auth design first (section 7, N5). The atc web UI hosted in the atc window (N7) is the browser client in a different frame and keeps the browser's access model (section 10.3, D9).
+- No new server state, no telemetry, and no network use beyond the configured atc URL. *(Proposed, section 11 (D12): once signed in, also the GitHub and Linear APIs, with the app's own Keychain tokens. Until the SUPERVISOR decides, this line stands.)*
 - No per-Mac Claude usage reading (the Vorssaint feature). atc FUEL already covers the host.
 
 ## 3. Principles
 
 1. **The server decides, the app shows.** Levels, texts, counts, "what is pending" and the title numbers come from the server as data. The app doesn't re-derive atc rules, so the browser, the SwiftBar plugin and the app always agree.
-2. **Read only until there is an access model.** Adding writes means adding real authentication for SUPERVISOR routes. That is a separate design with `Risk: Security`, not a side effect of the app.
+2. **Read only until there is an access model.** Adding writes means adding real authentication for SUPERVISOR routes. That is a separate design with `Risk: Security`, not a side effect of the app. *(Proposed, section 11 (D12): this stays true for atc. GitHub and Linear are a different trust boundary with their own rules in 11.2 and 11.4: read only first, no merge ever, each write a separate decision.)*
 3. **A pure core tested on Linux.** Everything that isn't AppKit or SwiftUI (decoding, SSE parsing, reconnect backoff, seen-key diff, formatting) lives in a Foundation-only target. Team sessions test it in the `swift` Docker image on the host.
 4. **Built on the Mac, not shipped as a binary.** v1 has no signed download. The SUPERVISOR builds from the checkout with one script, which avoids Developer ID, notarization and CI secrets.
 5. **The public repo stays clean.** No screenshots, and no real names or emails in code or bundle IDs. Reused GPL-3.0 code keeps its notices.
@@ -169,6 +169,7 @@ atc-app/
 | macOS UI churn (for example Liquid Glass on macOS 26) | Target macOS 14 APIs, with no private APIs (unlike Vorssaint's HID and MediaRemote use) |
 | The atc window becomes a second write client without anyone deciding it (N7) | D9 states it; the app adds no script bridge and no Swift write calls; navigation is locked to the atc origin (section 10.3) |
 | Alerts sound twice: the app (N4) and the web page in the atc window, or a browser tab as well | N7a mutes the web page's alert audio inside the app; a browser tab keeps its own switch (section 10.4) |
+| A GitHub or Linear token leaks, or a write path reaches merge | Section 11 (proposed, D12): Keychain only, read only first, no merge, `WritePolicy`, `Redact` |
 | The window keeps a second full SSE stream (340 KB snapshots) open over the SSH forward when nobody looks | The web view is released when the window closes; reopening reloads it (section 10.2) |
 
 ## 9. Decisions (SUPERVISOR)
@@ -177,7 +178,7 @@ atc-app/
 |---|---|---|
 | D1 | App name | ANNUNCIATOR (the cockpit's MASTER WARNING/CAUTION panel) |
 | D2 | Distribution | Build on the Mac with `Tools/build-app.sh`; no signed download for now |
-| D3 | Writes from the app | Not in v1. Revisit after a week of use with a separate auth design (N5) |
+| D3 | Writes from the app | Not in v1. Revisit after a week of use with a separate auth design (N5). *(Proposed, section 11: stays for atc; GitHub and Linear writes are D12c and D12d.)* |
 | D4 | macOS CI compile job | Built (ATC-205): `mac` and `linux` jobs in `.github/workflows/ci.yml`; no signing, no artifacts |
 | D5 | SwiftBar plugin after the app | Keep it as the documented fallback, frozen, reading the same summary |
 | D6 | Minimum macOS | 14, unless the SUPERVISOR's Mac is newer and a newer API saves real work |
@@ -186,6 +187,7 @@ atc-app/
 | D9 | Writes through the atc window | The web UI in the atc window may write exactly as it does in a browser tab (localhost plus the Origin check). The app's Swift code still sends no writes, and it adds no JavaScript bridge. A token (N5) is still what native writes would need |
 | D10 | Where click-throughs open after N7 | The atc window by default; a Settings switch goes back to the browser; ⌥-click always opens the browser |
 | D11 | Order against N4 | **Decided 2026-09-30:** N4 ships first and opens the browser, but routes every click-through through one link opener; N7 swaps that opener for the window |
+| D12 | GitHub and Linear inside the app | **Decided 2026-09-30 (direction only):** the app calls both APIs itself with its own tokens in the Keychain. The details (what is shown, writes, auth, budget) are proposals in section 11, D12a to D12j |
 
 ## 10. The atc window (N7, N7a, N8)
 
@@ -242,7 +244,7 @@ atc-app/
 **Navigation policy** (`WKNavigationDelegate`, `WKUIDelegate`)
 
 - Only the configured atc origin loads in the window.
-- Links to GitHub, Linear or anything else, `target=_blank` and `window.open` go to the default browser.
+- Links to GitHub, Linear or anything else, `target=_blank` and `window.open` go to the default browser. *(Proposed, section 11: this stays. The Work window's own rows also open the browser, and `LinkRoute.decide` gains `github.com` and `linear.app` as the only extra hosts allowed to open.)*
 - No `WKScriptMessageHandler` and no injected scripts: the page cannot call Swift, and Swift only sets `location.hash`.
 - The data store is the persistent default one, so the web UI's settings (theme, tabs, RADIO frequency) survive restarts. They are separate from the browser's.
 - Media may play without a click (`mediaTypesRequiringUserActionForPlayback = []`), so RADIO audio (R3) works in the window without the browser's audio lock (ATC-162).
@@ -308,3 +310,195 @@ DUTY (chat with atc, decide in the same window) lives in the atc web UI drawer a
   - tooltip `DUTY · <account> · context <k>/<cap>k` (thousands, rounded); parts atc did not send are left out.
 - The popover height grows by one row while DUTY shows (`PanelLayout`, `dutyLine`).
 - Not done: a DUTY badge on the menu bar title (the title stays the MASTER light); atc's `docs/duty.md` is linked to this section by ENGINEERING after the merge.
+
+## 11. GitHub and Linear in the app (ATC-240, D12)
+
+> Status (2026-09-30): **proposed**, design only. The SUPERVISOR chose the direction (D12): the app calls the GitHub and Linear APIs itself, with its own tokens in the Keychain. Not in-app web tabs, and not native lists fed by atc's data. **Everything else in this section (what is shown, what is written, which auth, which budget) is a recommendation until the SUPERVISOR answers 11.9.** Lines elsewhere that this reverses are marked "proposed, section 11" and stay in force until then. No Swift, no tokens, no OAuth app: nothing here has been created or called.
+
+### 11.1 Current facts
+
+Facts about atc come from ATC-240 and the atc repository; verify them before building on them.
+
+- **atc already reads both.** The atc server polls GitHub every 90 s through `gh` with the SUPERVISOR's token (`server/sources/github.ts`) and Linear with `LINEAR_API_KEY` (`server/sources/linear.ts`, two teams). The atc web UI has read-only FLIGHT and PR drawers (ATC-206), and they already show in the atc window (N7).
+- **atc already writes, with guards.**
+  - MCC lands `auto` and `flagged` atc PRs; AUTOLAND merges delegated PRs elsewhere; the MERGE button (DUTY G2) merges `user`-tier PRs at an exact head. **LANDING tiers** (`deploy/landing-tier.mjs`) decide who merges.
+  - Linear writes go only through `server/sources/linear-write.ts` (G3 state moves, DUTY D7a), within fixed limits.
+- **The GitHub budget is per user.** atc's LOGBOOK already spends about 1,300 GraphQL points an hour (atc issue 237). A second client on the same user's token draws from the same budget.
+- **The app today talks only to atc** (GET and SSE, section 5). Links to GitHub and Linear open in the default browser (10.2).
+- **Team sessions cannot compile the app target.** Only ATCCore (Foundation only) is tested on Linux (section 6).
+
+Facts from the public API docs (read 2026-09-30; re-read before each build issue):
+
+| Topic | What the docs say |
+|---|---|
+| GitHub App device flow | `POST github.com/login/device/code` and `…/login/oauth/access_token` with the `client_id` only, no client secret. Device flow must be enabled in the app's settings |
+| GitHub App user token | Expires after 8 hours; the refresh token lasts 6 months. Permissions are fine-grained, not scopes: the token has what both the user and the app have, on the repositories where the app is installed |
+| GitHub primary limit | User tokens (PAT, App user token, OAuth App token): 5,000 requests an hour. The page read said these share one bucket per user. **Design for the worst case: shared** |
+| GitHub secondary limits | 100 concurrent requests; 900 points a minute per REST endpoint group (GET = 1, write = 5); content creation 80 a minute and 500 an hour. On 403 or 429, honour `retry-after` |
+| GitHub conditional requests | `ETag` with `If-None-Match`. GitHub is known to not count a `304` against the primary limit, but the pages read did not say so. **Verify in the conditional-requests page before relying on it** |
+| Linear OAuth 2 | Authorization code with PKCE and no client secret is supported. Access token lasts 24 hours, with a refresh token. Scopes: `read`, `write`, `issues:create`, `comments:create`, `admin`. There is a revoke endpoint. Always send `state` |
+| Linear limits | API key: 2,500 requests and 3,000,000 complexity points an hour; OAuth app: 5,000 and 2,000,000. One query may cost at most 10,000 points. Exceeded = HTTP 400 with `RATELIMITED`. Linear recommends webhooks over polling, and the app has no public endpoint to receive them |
+
+### 11.2 Principles (for this section)
+
+1. **Principle 1 still holds.** The app shows raw GitHub and Linear facts (title, state, CI rollup, review state, mergeability as GitHub reports it). It does not compute CLEARED TO LAND, a LANDING tier, STRANDED or any other atc verdict. Next to a PR it offers a link to the atc view for the decision.
+2. **No merge from the app, ever (proposed rule).** A merge goes through LANDING: MCC, AUTOLAND, or atc's MERGE button at an exact head. An app merge would bypass tiers and INSPECTION. The app does not ask for any permission that would allow it.
+3. **Read first, write later, and each write is a separate decision.** GL1 is read only with read-only credentials. A write needs its own step (GL2), its own permission on the token, an explicit click with the target shown, and an entry in the pure `WritePolicy` (11.4). No write happens from a notification, a timer or a background refresh.
+4. **Tokens are the app's own.** Not atc's `gh` token, not `LINEAR_API_KEY`, not a token copied from the host. The Keychain is the only place a token rests.
+5. **The app stays polite to atc's budget.** It polls only while someone looks, uses conditional requests, and stops at a cap (11.5).
+6. **The public repo stays clean.** No org names, emails, repository lists, client IDs or tokens in code, docs, fixtures, tests or the bundle. Client IDs and the repository list are entered in Settings and live in UserDefaults (they are not secrets, but they identify the SUPERVISOR's setup).
+
+### 11.3 What the app shows
+
+| Candidate | Source | Recommendation |
+|---|---|---|
+| Open PRs of the configured repositories: title, author, draft, CI rollup, review state, mergeability as GitHub reports it, updated | GitHub REST or one GraphQL query | **GL1.** The core of the feature |
+| PRs waiting for the SUPERVISOR's review | a PR search for `review-requested:@me` | **GL1**, as a filter of the same list |
+| GitHub notifications | `GET /notifications` (a classic-scope feature; a GitHub App user token can't reach it) | **Defer** |
+| Linear issues by state for the configured teams | GraphQL, filtered and paginated small | **GL1.** Counts by state in the popover, the list in the window |
+| Linear inbox (notifications) | GraphQL `notifications` | **Defer.** Add only if asked |
+
+**Where.**
+- **Popover:** one line per source ("GitHub: 3 open · 1 CI failing", "Linear: 4 Todo · 2 Started"), each opening the window. Counts are the raw numbers GitHub and Linear give, not atc severities, and they never light the MASTER light.
+- **Window:** a new native "Work" window (AppKit list, no SwiftUI macros), beside the atc window, reached from Window > Work. A row click opens the PR or issue in the default browser (10.2 stays). Each PR row has a second action "Decide in atc ↗" that opens the atc window at the matching tab.
+- **Against the N8 tests (10.6).** N8 said a screen becomes native only if it needs the OS, must stay visible while working elsewhere, or is small, read only and already modelled in ATCCore. Lists of PRs and issues mostly fail all three, and atc's web drawers already show them (ATC-206). D12 supersedes that default, so this is an explicit exception, not a pass. **Recommendation:** keep it small to limit drift: two lists, no editor, no detail pane, no search. Anything deeper opens the browser or atc.
+- If the SUPERVISOR finds the Work window duplicates the atc drawers, the fallback is D12b (hybrid, 11.5).
+
+### 11.4 What the app writes, and the guard for each
+
+**A write is a typed value, not a free request.** ATCCore has a `WritePolicy` with a closed list of `WriteAction` cases. The app target has no generic "send this" path to GitHub or Linear. Anything not in the list cannot be sent, and there is a Linux test for each forbidden case.
+
+| Write | Recommendation | Guard |
+|---|---|---|
+| **GitHub merge** (also enabling auto-merge, pushing a branch) | **Never.** Not in `WriteAction`, and not granted on the token | LANDING only. A test asserts `WriteAction` has no merge case |
+| Linear issue delete, archive, bulk edit | **Never** | Same |
+| Linear state move | **No.** atc does this (G3) with its own limits; two writers would disagree | If wanted later: only Backlog, Todo and Canceled, atc's own limits. Started and Done stay with PRs and `Fixes` |
+| Linear comment | **Maybe, GL2, off by default.** The one write with clear value (a quick note from the Work window) | Scope `comments:create` only, not `write`; text typed by the SUPERVISOR; the confirm sheet names the issue; no templates and no text from atc |
+| GitHub PR comment | **Not in the first build** | Needs "Pull requests: write" on the App, which also allows merging. A GitHub App cannot grant "comment but not merge", so this waits for a permission that can |
+| GitHub request review | **No** | Same permission problem |
+| GitHub re-run CI | **No** in GL2; revisit | Needs "Actions: write", and a re-run can change deployment state. atc's own CI handling is the place |
+
+**Guards common to every write, if GL2 is adopted:**
+- a Settings switch "Allow writes", off by default, and a separate sign-in consent (write permission is requested only after the switch is on; turning it off deletes that token and asks for a read-only one);
+- one click shows the exact target (repository and number, or issue key) and the exact text, and a second click sends. "Send" is never the keyboard default;
+- one request per confirmation, no automatic retry of a write; a failed write shows the error;
+- a local line "sent comment on <issue key>" with no body and no token, for the SUPERVISOR's own reference;
+- atc is unchanged: the app still sends only GET and SSE to atc.
+
+### 11.5 Auth, tokens and the budget
+
+**GitHub: a GitHub App with device flow (recommended), not a PAT, not an OAuth App.**
+- **Why:** device flow needs no client secret and no redirect handler, so the bundle holds nothing that could be copied out. The user token expires in 8 hours and is refreshed, so a stolen token is short-lived. Permissions are fine-grained and limited to the repositories where the SUPERVISOR installs the App, unlike an OAuth App's broad `repo` scope.
+- **Permissions for GL1, all read only:** Metadata, Pull requests (read), Commit statuses (read), Checks (read). No write permission in GL1.
+- **Separate from atc's token.** The App has its own identity. The docs read do not show that this gives a separate rate bucket, so the budget below assumes it does not.
+- **Fallback:** a fine-grained PAT typed into Settings and stored by the same Keychain code. Not recommended: it lives for weeks or months.
+
+**Linear: OAuth 2 with PKCE (recommended), not a personal API key.**
+- **Why:** PKCE needs no client secret; scope `read` is enough for GL1 (a personal API key is full access by design); tokens are revocable and expire in 24 hours.
+- **Flow:** `ASWebAuthenticationSession` (public API) for the authorization, a custom URL scheme for the redirect. The SUPERVISOR registers the Linear OAuth application and puts its client ID in Settings.
+- **Fallback:** a personal API key in the Keychain. Not recommended: it cannot be limited to read, and its limits are lower.
+
+**Keychain.**
+- Generic password items, services `dev.atc.annunciator.github` and `dev.atc.annunciator.linear`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, `kSecAttrSynchronizable` false. Access and refresh tokens are separate items.
+- Never in a file, `UserDefaults`, the plist, the repository, a log, a crash report, a notification or an environment variable. The `SecretStore` protocol in ATCCore has an in-memory fake for tests; the app's Keychain implementation is small.
+- **A locally built, ad-hoc signed app changes its code signature on every rebuild.** macOS may then ask for the login password before the new build reads the old items. That is a nuisance, not a hole; the alternative (a shared access group) needs a real Developer ID (D2). **PILOT'S DISCRETION:** accept the prompt, document it in the checklist, revisit if it gets in the way (D12i).
+
+**Sign out and revoke.**
+- **Sign out** deletes both Keychain items and the in-memory ETags and lists, and stops all polling. It is always available in Settings and needs no network.
+- **Revoke:** Linear has a revoke endpoint, and sign-out calls it. For GitHub, revoking a token through the API is believed to need the client secret, which the app must not hold, so the app can't revoke GitHub tokens itself: Settings links to the page where the SUPERVISOR revokes or uninstalls the App in the browser. The 8-hour token life is the compensating control. **Verify in the docs before GL0.**
+- **Shared Mac, or a copied app:** items are this-device only and bound to the login keychain and the code signature, so another macOS user or a copied bundle can't read them without the SUPERVISOR's login password. A copy of the app contains code and no secret. For a shared login session, locking the screen is the real control, and the checklist says so.
+
+**Polling and budget** (both sources):
+- **Only while looked at.** Fetch when the popover or the Work window opens and poll while either is open. No background polling. So there are no GitHub or Linear notifications, which is why they are deferred in 11.3.
+- **Interval:** 60 s for each source while open (PILOT'S DISCRETION), plus a manual Refresh.
+- **Conditional requests:** GitHub list calls send `If-None-Match`. ETag and body stay in memory, not on disk.
+- **Cost rules:** one REST list per repository (open PRs), plus a CI rollup per PR only when its `updated_at` changed. One GraphQL query for the lot is an alternative that GL0 prices against the points budget. Linear queries are filtered to the configured teams, ask only for the fields shown, and page with `first` of 50 or less, far under 10,000 points.
+- **Cap:** the app stops itself at 1,000 GitHub requests an hour (20 percent of 5,000), so atc's LOGBOOK spend keeps its room. The cap is a value in ATCCore (`RateBudget`) and is shown in Settings.
+- **Back-off:** on 403 or 429 wait for `retry-after`, or until `x-ratelimit-reset` when `x-ratelimit-remaining` is 0; with no header, 60 s doubling to 15 minutes with jitter (the `Reconnect` schedule can be reused). Linear signals its limit as HTTP 400 with `RATELIMITED`: treat it the same. The popover says "GitHub rate limited, retrying at <time>".
+- **Hybrid, for comparison (D12b).** Read the lists from atc and call GitHub or Linear only for actions.
+  - *For:* one rate budget; no read tokens in the app; atc's decisions and the lists never disagree.
+  - *Against:* atc's snapshot carries only what atc tracks, so each new field is a server change; and it does not give the app a view of its own.
+  - **Recommendation:** direct, as chosen, with the list models in ATCCore so the source can be swapped.
+
+### 11.6 Code layout and tests
+
+```
+Sources/ATCCore/Work/
+  GitHubModels.swift     Codable: PullRequest, CheckRollup, ReviewState (raw GitHub values)
+  GitHubRequests.swift   request building: URLs, headers, query, If-None-Match; no networking
+  GitHubParse.swift      response parsing, Link header paging, rate-limit headers
+  LinearModels.swift     Codable: Issue, WorkflowState, Team
+  LinearRequests.swift   GraphQL query strings and variables, PKCE verifier and challenge
+  RateBudget.swift       the hourly cap, back-off schedule, retry-after parsing
+  ETagCache.swift        in-memory, keyed by URL
+  WritePolicy.swift      WriteAction (closed list), the forbidden cases, confirm text
+  SecretStore.swift      protocol, in-memory fake, key names
+  Redact.swift           strips tokens and Authorization values from any string
+  WorkPanel.swift        popover lines and window rows from the models (counts, labels)
+Sources/Annunciator/Work/
+  KeychainStore.swift    SecretStore on the Keychain
+  AuthSession.swift      GitHub device-flow screen; Linear ASWebAuthenticationSession
+  WorkTransport.swift    URLSession calls: the app's only GitHub and Linear network code
+  WorkWindow.swift       AppKit list window
+Tests/ATCCoreTests/Fixtures/   scrubbed JSON (GitHub and Linear responses)
+```
+
+- **Fixtures** are real-shaped responses with names, emails, org and repository names, URLs and IDs replaced by neutral values (`octo`, `repo-a`, `ISS-1`, `user-1`), and no token or `Authorization` header. A Linux test scans every fixture for `@`, `ghp_`, `github_pat_`, `lin_` and `Bearer`.
+- **Tests on Linux:** request building (URL, headers, `If-None-Match`), parsing every fixture, paging, rate-limit headers, back-off, the cap, PKCE (verifier length and characters; challenge is the base64url of the SHA-256), `WritePolicy` (no merge case, no delete, the confirm text), `Redact`, `WorkPanel` counts.
+- **`FORBIDDEN_MACROS`** is unchanged: the Work window is AppKit only.
+- **A new Mac checklist** (`docs/mac-checklist-gl.md`, written in GL0) covers what CI can't see: the device-flow code screen, the browser round trip for Linear, the Keychain prompt after a rebuild, sign-out leaving no item (`security find-generic-password` finds none), the window, and a forced rate limit.
+
+### 11.7 Security review items (`Risk: Security`)
+
+Each item is a check for the reviews of GL0, GL1 and GL2.
+
+| Item | Check |
+|---|---|
+| Token storage | Only the Keychain, this-device-only, no sync. A grep of the app source for `UserDefaults`, `write(to:`, `print`, `NSLog` and `os_log` finds no token |
+| Scope creep | GL1 permissions are the read-only list in 11.5. A new permission or scope needs a PR that changes this section and a SUPERVISOR decision |
+| Logging | Every logged string and every error shown in the UI goes through `Redact`; response bodies are never logged; URLs are logged without query strings; the ETag cache is memory only |
+| A shared Mac or a copied app | See 11.5. The bundle holds no secret, and there is no client secret anywhere |
+| Write guard | `WritePolicy` is the only path to a write; the tests in 11.6 fail if a merge, delete or bulk case appears |
+| New trust boundary | The app gains outbound TLS connections to two third parties. It accepts no inbound connection (device flow polls; Linear's redirect is a URL scheme that accepts only a `code` with a matching pending `state`) |
+| URL scheme | The handler ignores a callback without a pending `state` and never opens a URL taken from it |
+| Web content | Titles and names from GitHub and Linear are untrusted: shown as plain text, never as HTML or markdown, and a link opens only if its host is `github.com` or `linear.app` (`LinkRoute.decide` gains these two hosts, in ATCCore with tests) |
+| Public repo | No org names, emails, repository names or client IDs in code, docs, fixtures, the bundle or the bundle ID |
+| atc's budget | The cap and back-off in 11.5: the app can't push atc's LOGBOOK into a rate limit |
+| Network outside atc | The non-goal "no network use beyond the configured atc URL" would become "atc, and the two API hosts once signed in". Nothing is contacted before sign-in, and there is no telemetry |
+
+### 11.8 Implementation order
+
+| Step | What | Needs | Size |
+|---|---|---|---|
+| GL0 | **Auth and Keychain, no data.** `SecretStore`, `Redact`, PKCE and device-flow helpers in ATCCore with tests. In the app: the Keychain store, Settings sections for GitHub and Linear (client ID, sign in, sign out), the GL Mac checklist. The SUPERVISOR registers the GitHub App and the Linear OAuth application and enters the client IDs in Settings; team sessions do not create them. The three "verify" points in 11.1 and 11.5 are checked here | D12 answered (11.9) | M |
+| GL1 | **Read-only lists.** Models, requests, parsing, `RateBudget`, `ETagCache`, `WorkPanel`; the popover lines; the Work window; `LinkRoute` hosts | GL0 | L (split: GitHub, then Linear) |
+| GL2 | **Actions, if any.** A Linear comment (`comments:create`) behind `WritePolicy` and "Allow writes". GitHub writes only after a separate decision | GL1, D12d | S |
+| GL3 | Later, by use: review and inbox views, a notification, a Work badge | GL1, two weeks of use | — |
+
+### 11.9 Decisions (SUPERVISOR)
+
+| # | Question | Recommendation |
+|---|---|---|
+| **D12** | **Decided 2026-09-30 (by the SUPERVISOR):** the app calls the GitHub and Linear APIs directly with its own tokens in the Keychain. This reverses the non-goal "no network use beyond the atc URL", Principle 2 and D3 for these two hosts only. atc stays read only (N5 unchanged) | — |
+| D12a | What is shown | PRs and Linear issues by state: counts in the popover, two lists in a Work window. Notifications and the Linear inbox later (11.3) |
+| D12b | Direct or hybrid | Direct, with swappable models (11.5) |
+| D12c | Merge from the app | Never. LANDING only (11.2, 11.4) |
+| D12d | Other writes | None in GL1. In GL2 only a Linear comment, off by default. No GitHub writes until there is a permission that can't merge |
+| D12e | GitHub auth | A GitHub App with device flow, read-only permissions, installed on the AIRPORT repos only; not a PAT |
+| D12f | Linear auth | OAuth 2 with PKCE, scope `read`; not a personal API key |
+| D12g | Budget | Only while the popover or window is open; 60 s; ETags; stop at 1,000 GitHub requests an hour |
+| D12h | Who creates the GitHub App and the Linear OAuth application | The SUPERVISOR, by hand; client IDs entered in Settings, never committed |
+| D12i | Keychain prompt after each local rebuild | Accept and document it, unless it gets in the way (11.5) |
+| D12j | Work window name and shortcut | "Work", ⌘⇧W (PILOT'S DISCRETION) |
+
+### 11.10 Risks
+
+| Risk | Mitigation |
+|---|---|
+| A second client eats atc's GitHub budget and slows LOGBOOK and MCC | The 20 percent cap, ETags, poll only while open, back-off (11.5); the first GL1 check measures what a session costs |
+| The app becomes a way to merge around LANDING | 11.2 and the `WritePolicy` test |
+| Tokens leak through logs, crash reports, a screenshot or the repo | Keychain only, `Redact`, no screenshots (`CLAUDE.md`), the fixture scan |
+| The Work window drifts from atc's FLIGHT and PR drawers | Raw facts only, small lists, a link to atc for decisions; hybrid stays as a fallback |
+| The app ends up with more power than the SUPERVISOR expects | Read only first, each scope a separate decision, a review item per permission |
+| Team sessions can't compile or see the app | As elsewhere: logic in ATCCore with Linux tests, the GL checklist for the Mac |
+| Claims from the docs turn out wrong (shared bucket, `304` not counted, revoke needs a secret) | Each is marked "verify" in 11.1 and 11.5; GL0 checks them before GL1 |
