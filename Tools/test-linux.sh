@@ -7,6 +7,17 @@ set -euo pipefail
 IMAGE="swift:6.3.3-noble@sha256:8de8ea332a61e961ead4ef41029c2552b18e1a70dd5942d25ecf7d8de2eec5b5"
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
+
+# The app target is never compiled on Linux, so this is the only early warning.
+# SwiftUI macros need Xcode's plugin and fail with Command Line Tools only.
+# Keep the list here, one ERE alternative per macro.
+FORBIDDEN_MACROS='@State\b|#Preview\b'
+if hits=$(grep -rnE "$FORBIDDEN_MACROS" "$root/Sources/Annunciator" --include='*.swift'); then
+  echo "test-linux: Sources/Annunciator uses a SwiftUI macro that needs Xcode's plugin (Command Line Tools cannot build it):" >&2
+  echo "$hits" >&2
+  echo "Use ObservableObject + @Published + @ObservedObject instead (see README 'Build and run')." >&2
+  exit 1
+fi
 mkdir -p "$root/.build/linux"
 
 start=$(date +%s)

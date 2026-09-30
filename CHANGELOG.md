@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- The app target builds with Command Line Tools only (ATC-163): `main.swift` runs inside `MainActor.assumeIsolated`; Settings keeps its form state in an `ObservableObject` (`SettingsForm`) instead of `@State`. `Tools/test-linux.sh` fails if `Sources/Annunciator` uses `@State` or `#Preview`.
 - The summary model reads `pending.schedule` (ATC-153 as merged, ATC-162). FUEL window names are atc's `five_hour` and `seven_day`, shown as `5h` and `7d`.
 
 - N2 `ATCCore`: Codable models for supervisor alerts, the `alert` SSE event and the `/api/supervisor-summary` `v: 1` body (an unknown `v` is a typed error); an incremental SSE parser; reconnect backoff (1 s to 30 s, ±20 % jitter) and a 60 s dead-connection watchdog; MASTER light state, lamps grouped by level, the seen-key diff for new WARNING and CALL alerts, and `HH:MMZ` formatting; a thin read-only URLSession client (GET and the SSE stream). 47 tests, run by `Tools/test-linux.sh`.
