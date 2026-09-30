@@ -1,88 +1,81 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import AppKit
 import ATCCore
-import ServiceManagement
-import UserNotifications
+import SwiftUI
 
-/// N0 hello app: a status item plus two debug items for the Mac checklist.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
+/// Status item (AppKit) plus a SwiftUI popover. Layout and system calls only.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let model = AppModel()
     private var statusItem: NSStatusItem!
-    private let loginItem = NSMenuItem(
-        title: "Launch at login (debug)", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+    private let popover = NSPopover()
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UNUserNotificationCenter.current().delegate = self
-
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = StatusTitle.text()
+        if let button = statusItem.button {
+            button.target = self
+            button.action = #selector(togglePopover)
+            button.imagePosition = .imageLeading
+        }
 
-        let menu = NSMenu()
-        menu.delegate = self
-        let test = NSMenuItem(
-            title: "Test notification (debug)", action: #selector(testNotification), keyEquivalent: "")
-        test.target = self
-        menu.addItem(test)
-        loginItem.target = self
-        menu.addItem(loginItem)
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        statusItem.menu = menu
-        refreshLoginItem()
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(
+            rootView: PopoverView(model: model, openSettings: { [weak self] in self?.showSettings() }))
+
+        model.onFeedChange = { [weak self] in self?.render() }
+        render()
+        model.start()
     }
 
-    // Show banners even while the app counts as active.
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        completionHandler([.banner, .sound])
-    }
-
-    func menuNeedsUpdate(_ menu: NSMenu) { refreshLoginItem() }
-
-    @objc private func testNotification() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-            NSLog("ANNUNCIATOR notification authorization granted=%d error=%@",
-                  granted ? 1 : 0, String(describing: error))
-            guard granted else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "ANNUNCIATOR"
-            content.body = "Test notification"
-            let request = UNNotificationRequest(identifier: "n0-test", content: content, trigger: nil)
-            center.add(request) { error in
-                NSLog("ANNUNCIATOR notification add error=%@", String(describing: error))
-            }
+    private func render() {
+        guard let button = statusItem.button else { return }
+        let title = model.title
+        button.setAccessibilityLabel(title.plain)
+        switch title.symbol {
+        case .unreachable:
+            button.image = nil
+            button.attributedTitle = NSAttributedString(
+                string: "✈ —", attributes: [.foregroundColor: NSColor.secondaryLabelColor])
+        case .light(let light):
+            let name = light == .off ? "airplane" : "circle.fill"
+            let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+            image?.isTemplate = true
+            button.image = image
+            button.contentTintColor = tint(light)
+            button.attributedTitle = NSAttributedString(string: title.text.isEmpty ? "" : " " + title.text)
         }
     }
 
-    @objc private func toggleLaunchAtLogin() {
-        let service = SMAppService.mainApp
-        do {
-            if service.status == .enabled {
-                try service.unregister()
-            } else {
-                try service.register()
-            }
-        } catch {
-            NSLog("ANNUNCIATOR launch at login error: %@", String(describing: error))
+    private func tint(_ light: MasterLight) -> NSColor? {
+        switch light {
+        case .warning: return .systemRed
+        case .caution: return .systemOrange
+        case .off: return nil
         }
-        refreshLoginItem()
     }
 
-    private func refreshLoginItem() {
-        let status = SMAppService.mainApp.status
-        loginItem.state = status == .enabled ? .on : .off
-        loginItem.title = "Launch at login (debug): \(Self.describe(status))"
+    @objc private func togglePopover() {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
     }
 
-    private static func describe(_ status: SMAppService.Status) -> String {
-        switch status {
-        case .enabled: return "enabled"
-        case .notRegistered: return "not registered"
-        case .requiresApproval: return "requires approval"
-        case .notFound: return "not found"
-        @unknown default: return "unknown"
+    private func showSettings() {
+        popover.performClose(nil)
+        if settingsWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model)))
+            window.title = "ANNUNCIATOR Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            settingsWindow = window
         }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.center()
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 }

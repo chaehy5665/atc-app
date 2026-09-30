@@ -5,6 +5,12 @@
 
 ### Added
 
+- N3 app v1: menu bar MASTER light (red WARNING, amber CAUTION, count, then `5h 45% · 7d 55%`; grey `✈ —` while atc is unreachable, with automatic reconnect); a SwiftUI popover with LAMPs by level (click opens the atc tab), pending DISPATCH, HUMAN CHECK, tool approvals and SCHEDULE, the last RTS as `HH:MMZ`, ACCOUNT FUEL windows, working AIRCRAFT and control sessions with NEEDS YOU; Settings for the atc URL (UserDefaults) and launch at login. `ATCCore` gains the presentation rules (`StatusBarTitle`, `PanelContent`, `ATCLink`, `ATCSettings`, `FuelFormat`) and `LiveFeed` (SSE with backoff and the 60 s watchdog). `docs/mac-checklist-n3.md` lists what to check on the Mac.
+
+### Fixed
+
+- The summary model reads `pending.schedule` (ATC-153 as merged, ATC-162). FUEL window names are atc's `five_hour` and `seven_day`, shown as `5h` and `7d`.
+
 - N2 `ATCCore`: Codable models for supervisor alerts, the `alert` SSE event and the `/api/supervisor-summary` `v: 1` body (an unknown `v` is a typed error); an incremental SSE parser; reconnect backoff (1 s to 30 s, ±20 % jitter) and a 60 s dead-connection watchdog; MASTER light state, lamps grouped by level, the seen-key diff for new WARNING and CALL alerts, and `HH:MMZ` formatting; a thin read-only URLSession client (GET and the SSE stream). 47 tests, run by `Tools/test-linux.sh`.
 - N0 toolchain: `Package.swift` (swift-tools 5.9, macOS 14, no dependencies) with `ATCCore` (Foundation only, one pure function and tests) and a hello `Annunciator` status item app (`LSUIElement`, Quit, debug items "Test notification" and "Launch at login").
 - `Tools/test-linux.sh`: builds and tests `ATCCore` in the official `swift` Docker image, pinned by tag and digest.

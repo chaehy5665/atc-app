@@ -1,0 +1,44 @@
+{
+  "v": 1,
+  "at": "2026-09-30T03:33:16.722Z",
+  "master": "caution",
+  "counts": {
+    "warning": 0,
+    "caution": 21,
+    "advisory": 9
+  },
+  "pending": {
+    "dispatch": 2,
+    "humanCheck": 1,
+    "tool": 0,
+    "schedule": 0
+  },
+  "fuel": {
+    "label": "account-a",
+    "windows": [
+      {
+        "name": "five_hour",
+        "pct": 6,
+        "resetsAt": "2026-09-30T07:50:00.000Z"
+      },
+      {
+        "name": "seven_day",
+        "pct": 65,
+        "resetsAt": "2026-10-01T10:00:00.000Z"
+      }
+    ]
+  },
+  "rts": {
+    "result": "ok",
+    "at": "2026-09-30T03:22:07.540Z",
+    "from": "0e28276bccdb2f9c4bf4736b9578f278e9f8e342",
+    "to": "d5c634641a21f5d9e173e241b9ba62f0a4324faf"
+  },
+  "working": {
+    "aircraft": 3,
+    "control": 2
+  },
+  "needsYou": [
+    "TEAM_K"
+  ]
+}
