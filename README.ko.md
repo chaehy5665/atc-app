@@ -19,13 +19,24 @@ atc를 읽기만 합니다. 승인과 스위치는 atc 화면에서 합니다.
 
 atc는 도는 컴퓨터의 `127.0.0.1:7700`에만 듣습니다. Mac에서는 SSH 로컬 포워딩을 켜 둡니다(`ssh -N -L 7700:127.0.0.1:7700 <호스트>`, 또는 atc의 `docs/guide/menubar.md`에 있는 launchd 에이전트). 앱은 `http://localhost:7700`에만 말하고 포트를 열지 않습니다. atc를 LAN에 열지 마세요. atc에는 로그인이 없습니다.
 
-## 빌드(예정)
+## 빌드와 실행 (Mac)
 
 ```sh
 Tools/build-app.sh      # swift build -c release, Annunciator.app 묶기, ad-hoc 서명, ~/Applications에 복사
 ```
 
+```sh
+open ~/Applications/Annunciator.app
+```
+
+1. atc로 가는 SSH 포워딩을 켜 둡니다. `/api/supervisor-summary`(ATC-153)가 배포된 atc여야 합니다.
+2. `Tools/build-app.sh`를 실행합니다(Xcode 명령줄 도구 필요).
+3. 앱을 엽니다. 회색 `✈ —`는 atc에 닿지 않는다는 뜻이고, 스스로 다시 연결합니다(1초부터 두 배씩, 최대 30초).
+4. 항목을 누르면 팝오버가 열립니다. **Settings…**에서 atc URL(기본 `http://localhost:7700`)과 로그인 시 실행을 정합니다.
+
 Mac에서 직접 빌드한 앱에는 격리(quarantine) 표시가 없어 Developer ID 없이 열립니다.
+
+코어 테스트는 `Tools/test-linux.sh`(Docker)로 Linux에서 돕니다.
 
 ## 라이선스
 

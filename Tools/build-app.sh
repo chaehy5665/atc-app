@@ -11,7 +11,7 @@ fi
 
 BUNDLE_ID="dev.atc.annunciator"
 MIN_MACOS="14.0"
-VERSION="0.0.0"
+VERSION="0.1.0"
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -40,6 +40,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>${MIN_MACOS}</string>
   <key>LSUIElement</key><true/>
+  <key>NSAppTransportSecurity</key>
+  <dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict>
 </plist>
 PLIST

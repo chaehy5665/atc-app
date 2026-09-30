@@ -116,8 +116,8 @@ public struct VersionInfo: Codable, Equatable, Sendable {
 // MARK: - /api/supervisor-summary (v: 1)
 
 /// Body of `/api/supervisor-summary` and the `summary` SSE event.
-/// Written from atc's docs/mac-app.md section 3; the sub-object field names
-/// below still need checking against ATC-153 once it is built.
+/// Checked against atc's server/README table and a live read (ATC-153, merged).
+/// FUEL window names are atc's own (`five_hour`, `seven_day`); see `FuelFormat`.
 public struct SupervisorSummary: Codable, Equatable, Sendable {
     public static let supportedVersion = 1
 
@@ -146,6 +146,8 @@ public struct SupervisorSummary: Codable, Equatable, Sendable {
         public var dispatch: Int?
         public var humanCheck: Int?
         public var tool: Int?
+        /// SCHEDULE decisions (approval mode, ATC-162).
+        public var schedule: Int?
     }
 
     public struct FuelWindow: Codable, Equatable, Sendable {
