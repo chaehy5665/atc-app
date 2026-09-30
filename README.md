@@ -65,6 +65,8 @@ A locally built app carries no quarantine flag, so it opens without a Developer 
 
 Core tests run on Linux with `Tools/test-linux.sh` (Docker).
 
+CI (`.github/workflows/ci.yml`) runs on every PR and push to `main`: job `mac` builds the app target and runs `swift test` on a macOS runner; job `linux` runs `Tools/test-linux.sh` (core tests and the SwiftUI macro check). A PR must be green on both. CI cannot see runtime behaviour, so screens, sound and notifications are still checked on a Mac with the checklists in `docs/`.
+
 ## Licence
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). atc itself is a separate program with its own licence; the app talks to it only over HTTP. Code reused from other GPL-3.0 projects keeps its copyright notice, and the source file names where it came from.

@@ -50,6 +50,8 @@ Mac에서 직접 빌드한 앱에는 격리(quarantine) 표시가 없어 Develop
 
 코어 테스트는 `Tools/test-linux.sh`(Docker)로 Linux에서 돕니다.
 
+CI(`.github/workflows/ci.yml`)는 모든 PR과 `main` 푸시에서 돕니다. `mac` 잡은 macOS 러너에서 앱 타깃을 빌드하고 `swift test`를 돌리고, `linux` 잡은 `Tools/test-linux.sh`(코어 테스트와 SwiftUI 매크로 검사)를 돌립니다. PR은 두 잡이 모두 초록이어야 합니다. CI는 실행 중 동작(화면, 소리, 알림)을 볼 수 없어서, 그것은 `docs/`의 체크리스트로 Mac에서 확인합니다.
+
 ## 라이선스
 
 GPL-3.0-or-later, [LICENSE](LICENSE). atc는 자기 라이선스를 가진 별개의 프로그램이고, 앱은 HTTP로만 이야기합니다. 다른 GPL-3.0 프로젝트에서 가져온 코드는 저작권 표시를 그대로 두고, 파일에 출처를 적습니다.
