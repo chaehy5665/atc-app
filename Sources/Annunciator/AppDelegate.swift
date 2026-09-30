@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import AppKit
 import ATCCore
+import Network
 import SwiftUI
 
 /// Status item (AppKit) plus a SwiftUI popover. Layout and system calls only.
@@ -11,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
+    private var activity: NSObjectProtocol?
+    private let pathMonitor = NWPathMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -30,6 +33,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onFeedChange = { [weak self] in self?.render() }
         render()
         model.start()
+        keepAwakeForAlerts()
+    }
+
+    /// The app has no window, so keep App Nap from pausing the feed, and reconnect after wake or a network change.
+    /// The activity still lets the Mac sleep.
+    private func keepAwakeForAlerts() {
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep], reason: "Listening for atc alerts")
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.model.reconnectNow() }
+        }
+        var first = true  // the monitor reports the current path once at start; that is not a change
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            if first { first = false; return }
+            guard path.status == .satisfied else { return }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.model.reconnectNow() } }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "dev.atc.annunciator.path"))
     }
 
     private func render() {
