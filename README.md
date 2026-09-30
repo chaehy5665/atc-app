@@ -45,6 +45,18 @@ For each **new** WARNING (`level: "warning"`) or CALL (`cue: "call"`), whatever 
 
 The app only reads from atc: a notification has no ACK. Acknowledge in the browser.
 
+## RADIO monitor
+
+Settings has a **RADIO monitor** switch (off by default). It plays one frequency of atc's RADIO (`TOWER` by default; `DELIVERY`, `GROUND` and `COMPANY` too) through the app, with no browser tab open.
+
+- **Noise:** the same choice as the browser: calls only (default), unanswered calls only, or everything.
+- **What plays:** the app opens its own SSE connection with `topics=radio`, and for each new transmission it downloads `GET /api/radio/<id>.wav` (atc renders it from a phrase template; the app never builds speech from free text) and plays it, one at a time. The queue holds 5 and drops the oldest.
+- **Alerts win:** a WARNING or CALL tone or voice stops RADIO audio and RADIO waits until it ends. Quiet hours (the same field as for alerts) silence RADIO and drop what waits.
+- **No replay:** only what is recorded after you turn it on, or after the last (re)connect, is heard. While atc is unreachable nothing plays; when it comes back, traffic from the gap is not played. A call that later gets its reply is not played twice.
+- **Popover:** while it is on, a `RADIO ● TOWER` line under the status line shows the last transmission's head (`TOWER → GOLF · GO AROUND · ATC-147`). The menu bar title does not change.
+- Settings are kept in UserDefaults (`radio.on`, `radio.freq`, `radio.noise`). The app only reads from atc (GET and SSE).
+- Turn off LISTEN in the browser's RADIO tab while the app plays, or you hear it twice.
+
 A locally built app carries no quarantine flag, so it opens without a Developer ID.
 
 Core tests run on Linux with `Tools/test-linux.sh` (Docker).

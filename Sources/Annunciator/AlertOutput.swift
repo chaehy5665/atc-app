@@ -13,6 +13,10 @@ final class AlertOutput {
     private var playing: Task<Void, Never>?
     private var player: AVAudioPlayer?
     private var askedForPermission = false
+    private var generation = 0
+    /// True while an alert tone or voice is playing. RADIO waits for it, and stops when it starts.
+    private(set) var isBusy = false
+    var onBusyChanged: ((Bool) -> Void)?
 
     init() {
         // A bare executable (swift run) has no bundle and UNUserNotificationCenter would trap.
@@ -61,7 +65,11 @@ final class AlertOutput {
     private func play(tone: NotifyLevel?, voiceKey: String?, base: URL) {
         playing?.cancel()
         player?.stop()
+        generation += 1
+        let gen = generation
+        setBusy(true)
         playing = Task { [weak self] in
+            defer { Task { @MainActor in self?.finish(gen) } }
             // Start the download now so the callout follows the tone without a gap.
             let voice = voiceKey.flatMap { VoiceURL.url(base: base, key: $0) }.map { url in
                 Task { await Self.fetchVoice(url) }
@@ -70,6 +78,16 @@ final class AlertOutput {
             if Task.isCancelled { voice?.cancel(); return }
             if let data = await voice?.value { await self?.play(data: data) }
         }
+    }
+
+    private func finish(_ gen: Int) {
+        if gen == generation { setBusy(false) }
+    }
+
+    private func setBusy(_ busy: Bool) {
+        guard busy != isBusy else { return }
+        isBusy = busy
+        onBusyChanged?(busy)
     }
 
     /// GET only. A 404 means the server has no phrase for this alert (tone only); that is not an error.
