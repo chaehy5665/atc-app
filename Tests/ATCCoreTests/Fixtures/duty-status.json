@@ -1,0 +1,1 @@
+{"enabled":true,"state":"idle","error":null,"account":"acct-2","sessionId":"00000000","model":"claude-sonnet-5-5","context":22695,"cap":250000,"costUsd":0.0780318,"rates":[{"window":"five_hour","utilization":0.23,"resetsAt":1790790600},{"window":"seven_day","utilization":0.91,"resetsAt":1790848800}],"queued":0,"blocked":false,"malformed":0}

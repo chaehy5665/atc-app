@@ -41,7 +41,7 @@ struct PopoverView: View {
         }
         .frame(
             width: PanelLayout.width,
-            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on))
+            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on, dutyLine: model.duty != nil))
     }
 
     // MARK: Fixed strip
@@ -92,6 +92,7 @@ struct PopoverView: View {
             }
             Text(panel.statusLine).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 .help(panel.statusLine)
+            if let lamp = model.duty { dutyRow(lamp) }
             if let hint = RadioHint(model.radio) {
                 HStack(spacing: 6) {
                     Text(hint.title).font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
@@ -102,6 +103,32 @@ struct PopoverView: View {
             }
         }
         .padding(12)
+    }
+
+    /// DUTY and its state dot; a click opens the atc window at `#duty`. No sound, no notification.
+    private func dutyRow(_ lamp: DutyLamp) -> some View {
+        Button { LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + DutyLamp.fragment)) } label: {
+            HStack(spacing: 6) {
+                Text("DUTY").font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
+                Circle().fill(dutyColor(lamp.dot)).frame(width: 8, height: 8)
+                Spacer(minLength: 0)
+                Text("↗").font(.caption).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(lamp.tooltip)
+        .accessibilityLabel(lamp.tooltip + ", " + lamp.dot.rawValue)
+        .accessibilityHint("atc에서 엽니다")
+    }
+
+    private func dutyColor(_ dot: DutyDot) -> Color {
+        switch dot {
+        case .green: return .green
+        case .amber: return .orange
+        case .red: return .red
+        case .grey: return .gray
+        }
     }
 
     private func tileView(_ tile: AnnunciatorTile) -> some View {

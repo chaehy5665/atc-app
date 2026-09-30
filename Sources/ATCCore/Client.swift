@@ -36,6 +36,11 @@ public struct ATCClient {
         try ATCDecoding.summary(from: try await get(request("/api/supervisor-summary")))
     }
 
+    /// DUTY's state for the popover row (D6). GET only; the `duty` SSE topic is never read.
+    public func dutyStatus() async throws -> DutyStatus {
+        try ATCDecoding.duty(from: try await get(request("/api/duty/status")))
+    }
+
     /// The newest transmissions on one frequency, oldest first. Only the hint uses it; nothing from it is played.
     public func radio(freq: RadioFreq, limit: Int = 1) async throws -> [RadioTransmission] {
         let query = [URLQueryItem(name: "freq", value: freq.rawValue), URLQueryItem(name: "limit", value: String(limit))]

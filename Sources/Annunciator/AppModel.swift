@@ -32,6 +32,12 @@ final class AppModel: ObservableObject {
     /// The launchd SSH forward (ATC-204); does nothing while its host is empty.
     let forward = ForwardMonitor()
 
+    /// The DUTY row (D6); nil hides it. Read with GET only, and only while the popover is open or atc comes back.
+    @Published private(set) var duty: DutyLamp?
+    private var dutyTask: Task<Void, Never>?
+    private var dutyPolling = false
+    private static let dutyPollSeconds: UInt64 = 5
+
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
     private var radioTask: Task<Void, Never>?
@@ -56,11 +62,14 @@ final class AppModel: ObservableObject {
     func start() {
         task?.cancel()
         feed = FeedState()
+        duty = nil
         // A new atc (or first start) gets a new baseline: its first list is silent.
         notifier = AlertNotifier()
         let feed = LiveFeed(client: ATCClient(baseURL: baseURL)) { [weak self] state in
             Task { @MainActor in
+                let cameBack = state.connection == .live && self?.feed.connection != .live
                 self?.feed = state
+                if cameBack { self?.fetchDuty() }
                 if state.connection == .unreachable { self?.forward.refresh() }
                 self?.notify(state)
                 self?.onFeedChange?()
@@ -82,6 +91,36 @@ final class AppModel: ObservableObject {
     func reconnectNow() {
         live?.dropConnection()
         radioStream?.dropConnection()
+    }
+
+    // MARK: DUTY row
+
+    /// The popover opened (true) or closed (false): poll `GET /api/duty/status` only while it is open.
+    func setDutyPolling(_ on: Bool) {
+        dutyPolling = on
+        dutyTask?.cancel()
+        dutyTask = nil
+        guard on else { return }
+        dutyTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.readDuty()
+                try? await Task.sleep(nanoseconds: Self.dutyPollSeconds * 1_000_000_000)
+            }
+        }
+    }
+
+    /// One read, on the reconnect.
+    private func fetchDuty() {
+        guard !dutyPolling else { return }  // the poll already reads it
+        Task { await readDuty() }
+    }
+
+    /// A failed read (older atc without the endpoint, or unreachable) hides the row.
+    private func readDuty() async {
+        let client = ATCClient(baseURL: baseURL)
+        let status = try? await client.dutyStatus()
+        guard !Task.isCancelled else { return }
+        duty = DutyLamp.of(status)
     }
 
     // MARK: RADIO monitor
