@@ -26,6 +26,12 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp "$bin" "$app/Contents/MacOS/Annunciator"
 
+echo "build-app: drawing the app icon"
+mkdir -p "$app/Contents/Resources"
+iconset="$(mktemp -d)/Annunciator.iconset"
+swift Tools/make-icon.swift "$iconset"
+iconutil -c icns "$iconset" -o "$app/Contents/Resources/Annunciator.icns"
+
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -35,6 +41,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>Annunciator</string>
   <key>CFBundleDisplayName</key><string>Annunciator</string>
   <key>CFBundleExecutable</key><string>Annunciator</string>
+  <key>CFBundleIconFile</key><string>Annunciator</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleVersion</key><string>1</string>

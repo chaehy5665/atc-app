@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
+    private lazy var atcWindow = AtcWindowController(model: model)
     private var activity: NSObjectProtocol?
     private let pathMonitor = NWPathMonitor()
 
@@ -30,7 +31,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
 
-        model.onFeedChange = { [weak self] in self?.render() }
+        atcWindow.onWillShow = { [weak self] in self?.popover.performClose(nil) }
+        LinkOpener.model = model
+        LinkOpener.window = atcWindow
+        NSApp.mainMenu = MainMenu.build(settings: #selector(openSettings), target: self, window: atcWindow)
+
+        model.onFeedChange = { [weak self] in
+            self?.render()
+            if let self { self.atcWindow.feedChanged(self.model.feed) }
+        }
         render()
         model.start()
         keepAwakeForAlerts()
@@ -99,6 +108,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popover.contentViewController?.view.window?.makeKey()
         }
     }
+
+    /// Closing the atc window leaves the menu bar item running.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    @objc private func openSettings() { showSettings() }
 
     private func showSettings() {
         popover.performClose(nil)

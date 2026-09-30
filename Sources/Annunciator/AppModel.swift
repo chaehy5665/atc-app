@@ -24,6 +24,10 @@ final class AppModel: ObservableObject {
     }
     /// The monitor state, for the popover hint.
     @Published private(set) var radio = RadioMonitor()
+    /// Where click-throughs open: the atc window (default) or the browser (D10).
+    @Published var linkPreference: LinkPreference {
+        didSet { UserDefaults.standard.set(linkPreference.rawValue, forKey: "linkPreference") }
+    }
 
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
@@ -37,6 +41,7 @@ final class AppModel: ObservableObject {
         let saved = UserDefaults.standard.string(forKey: Self.urlKey) ?? ATCSettings.defaultURLString
         baseURL = ATCSettings.normalizeURL(saved) ?? ATCSettings.normalizeURL(ATCSettings.defaultURLString)!
         notifyPrefs = Self.loadPrefs()
+        linkPreference = UserDefaults.standard.string(forKey: "linkPreference").flatMap(LinkPreference.init(rawValue:)) ?? .window
         radioPrefs = Self.loadRadioPrefs()
         // An alert tone or voice wins: RADIO stops when one starts and goes on after it.
         output.onBusyChanged = { [weak self] busy in
