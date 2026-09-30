@@ -47,6 +47,6 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
 ## 용어와 교신
 
 - 항공 용어는 영어로 쓴다(AIRCRAFT, FLIGHT, STAND, READBACK, MASTER WARNING, LAMP …). SUPERVISOR가 읽는 글(사용자와의 대화, 앱 화면의 한국어 문구)은 한국어, 세션끼리 주고받는 글은 영어다.
-- atc OCC의 `[DISPATCH D-xxxx]` FLIGHT PLAN에는 `READBACK D-xxxx`(못 하면 `UNABLE D-xxxx — 사유`), TOWER의 `[ATC C-xxxx]` CLEARANCE에는 끝줄이 청하는 답(`READBACK`·`UNABLE`·`STANDBY`·`ROGER`)으로 답한다. 규칙 전문은 atc 저장소의 `CLAUDE.md` "교신"이다.
+- atc OCC의 `[DISPATCH D-xxxx]` FLIGHT PLAN에는 `READBACK D-xxxx`(못 하면 `UNABLE D-xxxx — 사유`, 시간이 필요하면 `STANDBY D-xxxx`), `[DISPATCH D-xxxx] RECALL`에는 작업을 멈추고 `READBACK D-xxxx RECALL`, `[OCC CC-xxxx]` CREW CHANGE에는 `READBACK CC-xxxx`로 답하고 그대로 팀원을 바꾸며(못 하면 `UNABLE CC-xxxx — 사유`), TOWER의 `[ATC C-xxxx]` CLEARANCE에는 끝줄이 청하는 답(`READBACK`·`UNABLE`·`STANDBY`·`ROGER`)으로 답한다. 규칙 전문은 atc 저장소의 `CLAUDE.md` "교신"이다.
 - 끝낸 일의 보고는 일을 맡긴 세션에만 보낸다. 머리는 `[TEAM_X → OCC] ARRIVED ATC-n · PR <URL>`, 이어서 `TIER user`, `TESTS <통과>/<전체> (linux core) · app: not built on Linux`, `DISCRETION …`, `BLOCKED …`.
 - 팀 세션은 Linear에 쓰지 않는다. 다른 팀 세션에 메시지를 보내지 않는다.
