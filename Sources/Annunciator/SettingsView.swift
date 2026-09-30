@@ -31,6 +31,12 @@ struct SettingsView: View {
                     apply()
                 }
             }
+            Picker("atc 열기", selection: $model.linkPreference) {
+                Text("앱 창").tag(LinkPreference.window)
+                Text("브라우저").tag(LinkPreference.browser)
+            }
+            .pickerStyle(.segmented)
+            Text("⌥를 누른 채 열면 그때만 브라우저로 열립니다.").font(.caption).foregroundStyle(.secondary)
             Divider()
             Toggle("알림 배너 (WARNING·CALL)", isOn: prefBinding(\.notifications))
             Toggle("알림 소리", isOn: prefBinding(\.sound))

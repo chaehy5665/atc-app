@@ -18,6 +18,11 @@ final class AppModel: ObservableObject {
         didSet { Self.save(notifyPrefs) }
     }
 
+    /// Where click-throughs open: the atc window (default) or the browser (D10).
+    @Published var linkPreference: LinkPreference {
+        didSet { UserDefaults.standard.set(linkPreference.rawValue, forKey: "linkPreference") }
+    }
+
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
     private var notifier = AlertNotifier()
@@ -27,6 +32,7 @@ final class AppModel: ObservableObject {
         let saved = UserDefaults.standard.string(forKey: Self.urlKey) ?? ATCSettings.defaultURLString
         baseURL = ATCSettings.normalizeURL(saved) ?? ATCSettings.normalizeURL(ATCSettings.defaultURLString)!
         notifyPrefs = Self.loadPrefs()
+        linkPreference = UserDefaults.standard.string(forKey: "linkPreference").flatMap(LinkPreference.init(rawValue:)) ?? .window
     }
 
     func start() {

@@ -8,7 +8,7 @@ It sits in the menu bar and lights up when atc needs the SUPERVISOR:
 
 - a MASTER WARNING (red) or MASTER CAUTION (amber) light with a count, and the busiest ACCOUNT's FUEL used;
 - one click shows the lit items (LAMPS) with their AIRCRAFT, FLIGHT or STAND, pending DISPATCH decisions, the last RTS, and working sessions;
-- each item opens the right atc tab in the browser;
+- each item opens the right atc tab in the atc window (the atc web UI in a native window; Settings can switch this to the browser, and ⌥-click opens the browser once);
 - a macOS notification, the tone and the voice callout for a new WARNING or CALL.
 
 It only reads from atc. Approvals and switches stay in the atc screen.
@@ -33,6 +33,10 @@ open ~/Applications/Annunciator.app
 2. Run `Tools/build-app.sh` (needs the Xcode command line tools). With Command Line Tools only, the app must not use SwiftUI macros (`@State`, `#Preview`, …), which need Xcode's plugin; `ObservableObject` and `@ObservedObject` are fine. `Tools/test-linux.sh` checks this.
 3. Open the app. `✈ —` in grey means atc is unreachable; it reconnects by itself (1 s backoff, doubling to 30 s).
 4. Click the item for the popover: a fixed strip (MASTER WARNING, MASTER CAUTION and ADVISORY counts, PENDING and NEEDS YOU chips, FUEL bars, one line for RTS and working counts) above a scrolling list of LAMPs (WARNING always open, CAUTION shows the first 5, ADVISORY folded; the choice is remembered) with each LAMP's age. The gear button (⌘,) opens Settings. Settings sets the atc URL (default `http://localhost:7700`) and launch at login.
+
+## The atc window
+
+Every click-through (a lamp, a pending row, a NEEDS YOU chip, **Open atc ↗**, a notification) opens the atc web UI in one native window and switches to the right tab without a reload. The window is the atc page itself, so approvals and settings work as in a browser tab, from the same `http://localhost:7700` origin. Only that origin loads in the window; links to GitHub, Linear or anything else, and `target=_blank`, open in the default browser. While the window is open the app has a Dock icon (badge: the MASTER count), Cmd-Tab and a menu bar with Edit, View (Reload ⌘R, zoom) and Window. Closing the window goes back to the menu bar item alone and releases the page. When atc cannot be reached the window shows the popover's text instead of a browser error and reloads by itself when atc returns. Settings: **atc 열기** chooses app window (default) or browser.
 
 ## Alerts: notification, tone, voice
 
