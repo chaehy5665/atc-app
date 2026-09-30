@@ -5,7 +5,7 @@ import AppKit
 /// but it must exist so the web UI's fields get Cmd-C, Cmd-V and the rest.
 enum MainMenu {
     @MainActor
-    static func build(settings: Selector, target: AnyObject, window: AtcWindowController) -> NSMenu {
+    static func build(settings: Selector, duty: Selector, target: AnyObject, window: AtcWindowController) -> NSMenu {
         let main = NSMenu()
 
         // App menu: About, Settings…, Quit.
@@ -40,6 +40,9 @@ enum MainMenu {
         let win = submenu(main, title: "Window")
         win.addItem(item("Close", #selector(NSWindow.performClose(_:)), "w"))
         win.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
+        // D6: the same route as the popover's DUTY row.
+        win.addItem(.separator())
+        win.addItem(item("DUTY", duty, "d", target: target))
         NSApp.windowsMenu = win
 
         return main

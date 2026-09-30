@@ -294,3 +294,17 @@ Full tabs (FLEET, DISPATCH, RADIO, METRICS, DOCS) stay web. If a candidate is pi
 ### 10.7 Not built yet
 
 N7 (window), N7a (atc: sound handed to the app), N8 (native screen candidates, design only).
+
+### 10.8 D6 as built: the DUTY entry (ATC-234)
+
+DUTY (chat with atc, decide in the same window) lives in the atc web UI drawer at `#duty`. The window already hosts it and its writes carry the localhost Origin (D9), so the app has no chat code. D6 adds a way in and DUTY's state at a glance.
+
+- **Popover row:** `DUTY ● ↗` under the status line (and the RADIO hint). Click → `LinkOpener` with `ATCLink.url(base, "#duty")`, so `LinkRoute.decide` sends it to the window (hash set on a loaded page, else `base/#duty`), or to the browser under the D10 preference or ⌥. No new route type.
+- **Menu:** Window > DUTY (⌘D), the same call.
+- **Status source:** `GET /api/duty/status`, read only. `AppModel` polls it every 5 s only while the popover is open (`NSPopoverDelegate`), and reads it once when the feed comes back to live. It does **not** subscribe to the `duty` SSE topic (chat text), sends nothing, holds no token. DUTY has no sound and no notification (atc `docs/duty.md` 7).
+- **Shaping (ATCCore, `DutyLamp.of`, tested on Linux):**
+  - hidden while `enabled` is false, before the first read, or when the read fails (older atc without the endpoint, unreachable);
+  - dot: `idle` green, `answering` amber, `down` or `blocked` red, and `blocked: true` in the body is red whatever `state` says; an unknown `state` shows a grey dot (PILOT'S DISCRETION);
+  - tooltip `DUTY · <account> · context <k>/<cap>k` (thousands, rounded); parts atc did not send are left out.
+- The popover height grows by one row while DUTY shows (`PanelLayout`, `dutyLine`).
+- Not done: a DUTY badge on the menu bar title (the title stays the MASTER light); atc's `docs/duty.md` is linked to this section by ENGINEERING after the merge.

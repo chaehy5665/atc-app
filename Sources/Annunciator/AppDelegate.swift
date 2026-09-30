@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Status item (AppKit) plus a SwiftUI popover. Layout and system calls only.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let model = AppModel()
     private let popoverState = PopoverState()
     private var statusItem: NSStatusItem!
@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         popover.behavior = .transient
+        popover.delegate = self
         let host = NSHostingController(
             rootView: PopoverView(model: model, state: popoverState, openSettings: { [weak self] in self?.showSettings() }))
         // The popover follows the content height (PanelLayout: 240...640 pt).
@@ -34,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         atcWindow.onWillShow = { [weak self] in self?.popover.performClose(nil) }
         LinkOpener.model = model
         LinkOpener.window = atcWindow
-        NSApp.mainMenu = MainMenu.build(settings: #selector(openSettings), target: self, window: atcWindow)
+        NSApp.mainMenu = MainMenu.build(settings: #selector(openSettings), duty: #selector(openDuty), target: self, window: atcWindow)
 
         model.onFeedChange = { [weak self] in
             self?.render()
@@ -109,10 +110,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// The DUTY row is read only while the popover is open (D6).
+    func popoverWillShow(_ notification: Notification) { model.setDutyPolling(true) }
+    func popoverDidClose(_ notification: Notification) { model.setDutyPolling(false) }
+
     /// Closing the atc window leaves the menu bar item running.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     @objc private func openSettings() { showSettings() }
+
+    /// Window > DUTY (⌘D): the atc window at `#duty`.
+    @objc private func openDuty() {
+        LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + DutyLamp.fragment))
+    }
 
     private func showSettings() {
         popover.performClose(nil)
