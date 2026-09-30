@@ -131,7 +131,7 @@ atc-app/
 
 - **ATCCore:** `Tools/test-linux.sh` runs `swift build` and `swift test` in a pinned `swift` Docker image on the atc host, from any team STAND.
 - **App target:** team sessions can't compile it. The PR says so and lists what to look at. The SUPERVISOR runs `Tools/build-app.sh` on the Mac after merge.
-- An optional macOS CI job (N6) can add a compile check later.
+- **CI (N6/D4):** `.github/workflows/ci.yml` runs on every PR and push to `main`. Job `mac` (macOS runner, pinned Xcode) runs `swift build -c release --product Annunciator` and `swift test`; job `linux` runs `Tools/test-linux.sh`, including the `FORBIDDEN_MACROS` check, because GitHub's Xcode has the SwiftUI macro plugin and the mac job alone would not catch a macro that breaks Command Line Tools builds. A PR is green when both pass. CI cannot see runtime behaviour, so the Mac checklist stays for screens, sound and notifications. Job names are stable so the SUPERVISOR can make them required checks.
 - **Merging:** the SUPERVISOR merges every PR here; atc's MCC lands only atc PRs. Until atc can mark an AIRPORT as "teams don't merge here" (an atc follow-up to ATC-151), TOWER gives LAND to the STAND holder, who answers UNABLE (`CLAUDE.md`), and the SUPERVISOR merges.
 - **Checking the screen:** nobody but the SUPERVISOR sees the UI. They write what they saw in the PR or a comment, never a screenshot.
 
@@ -146,7 +146,7 @@ atc-app/
 | N4 | Notifications and sound: new WARNING and CALL, the tone, the voice WAV (from `/api/voice/alert`), quiet hours taken from the server's alert settings, a notification click opening the tab | N3 | — | M |
 | R4 | **RADIO monitor** (ATC-173, atc `docs/radio.md` section 4): a Settings switch plays one RADIO frequency (TOWER by default) from atc's `radio` SSE topic and `/api/radio/<id>.wav` through the N4 audio path; alerts win, quiet hours apply, no replay after a reconnect. Popover line, not the title | N4; atc R1, R3 | — | M |
 | N5 | **Design only:** a SUPERVISOR token for write routes (ACK, approve, reject) that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted | D3 | — | — |
-| N6 | Later, by use: a notch view, a separate FUEL status item, an update check against GitHub Releases, a macOS CI compile job | N3 | varies | — |
+| N6 | Later, by use: a notch view, a separate FUEL status item, an update check against GitHub Releases (the macOS CI job is built, ATC-205) | N3 | varies | — |
 | N7 | **atc window** (section 10): one native window hosting the atc web UI in a `WKWebView`; remembered frame; Dock icon and Cmd-Tab only while open; every click-through (MASTER light, lamps, "Open atc", notifications) opens the right tab inside it; the popover's unreachable state; links outside atc go to the browser | N3; N4's single link opener | — | M |
 | N7a | **In atc:** the web UI recognises the app window (a user-agent suffix) and leaves alert tones, voice callouts and browser notifications to the app there, since N4 plays them natively | N7 | atc auto | S |
 | N8 | **Design only:** which screens, if any, become native SwiftUI views (section 10.6). Nothing is built until the SUPERVISOR picks one after using N7 | N7, two weeks of use | — | — |
@@ -174,7 +174,7 @@ atc-app/
 | D1 | App name | ANNUNCIATOR (the cockpit's MASTER WARNING/CAUTION panel) |
 | D2 | Distribution | Build on the Mac with `Tools/build-app.sh`; no signed download for now |
 | D3 | Writes from the app | Not in v1. Revisit after a week of use with a separate auth design (N5) |
-| D4 | macOS CI compile job | Later (N6), in this repository |
+| D4 | macOS CI compile job | Built (ATC-205): `mac` and `linux` jobs in `.github/workflows/ci.yml`; no signing, no artifacts |
 | D5 | SwiftBar plugin after the app | Keep it as the documented fallback, frozen, reading the same summary |
 | D6 | Minimum macOS | 14, unless the SUPERVISOR's Mac is newer and a newer API saves real work |
 | D7 | Voice in the app | Yes (N4): play the host-rendered WAV; the radio effect stays in the browser for now |

@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# CI for atc-app (design N6/D4). Job names `mac` and `linux` are stable so they
+# can be made required checks. No secrets, no signing, no artifacts.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Builds the app target and runs all tests with the same command as
+  # Tools/build-app.sh. Catches AppKit/SwiftUI compile errors that Linux cannot see.
+  # Note: GitHub's Xcode ships the SwiftUI macro plugin, so this job does NOT catch
+  # @State/#Preview breaking a Command Line Tools build; the linux job does (grep).
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned Xcode: 16.4 (Swift 6.1 toolchain) on macos-15. Change here when the
+      # runner image drops it.
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Build app target
+        run: swift build -c release --product Annunciator
+      - name: Test
+        run: swift test
+
+  # ATCCore in the pinned swift image, plus the FORBIDDEN_MACROS check.
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests and macro check
+        run: Tools/test-linux.sh
