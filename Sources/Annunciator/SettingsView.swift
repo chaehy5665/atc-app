@@ -11,11 +11,14 @@ final class SettingsForm: ObservableObject {
     @Published var quietFrom = ""
     @Published var quietTo = ""
     @Published var quietInvalid = false
+    @Published var hostText = ""
+    @Published var hostInvalid = false
 }
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var form: SettingsForm
+    @ObservedObject var forward: ForwardMonitor
 
     var body: some View {
         Form {
@@ -31,6 +34,27 @@ struct SettingsView: View {
                     apply()
                 }
             }
+            Divider()
+            TextField("SSH 호스트 (예: user@host)", text: $form.hostText)
+                .onSubmit(applyHost)
+            Text("비우면 앱은 SSH 포워드를 건드리지 않습니다.").font(.caption).foregroundStyle(.secondary)
+            if form.hostInvalid {
+                Text("영문·숫자·. _ - 와 user@ 만 쓸 수 있고 -로 시작할 수 없습니다").font(.caption).foregroundStyle(.red)
+            }
+            HStack {
+                Button("Apply", action: applyHost)
+                Button("설치/복구") { forward.install() }.disabled(forward.busy || forward.spec == nil)
+                Button("다시 시작") { forward.restart() }.disabled(forward.busy || forward.spec == nil)
+                Button("확인") { forward.refresh(force: true) }.disabled(forward.busy || forward.spec == nil)
+            }
+            if let state = forward.state {
+                Text(state.line).font(.caption)
+                if !state.hint.isEmpty { Text(state.hint).font(.caption).foregroundStyle(.secondary) }
+            }
+            if !forward.error.isEmpty { Text(forward.error).font(.caption).foregroundStyle(.red) }
+            Text("~/Library/LaunchAgents/dev.atc.forward.plist 하나만 씁니다. 키·암호는 넣지 않습니다.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider()
             Picker("atc 열기", selection: $model.linkPreference) {
                 Text("앱 창").tag(LinkPreference.window)
                 Text("브라우저").tag(LinkPreference.browser)
@@ -83,6 +107,8 @@ struct SettingsView: View {
         .frame(width: 440)
         .onAppear {
             form.urlText = model.baseURL.absoluteString
+            form.hostText = forward.host
+            forward.refresh(force: true)
             form.launchAtLogin = model.launchAtLogin
             form.quietFrom = AppModel.clock(model.notifyPrefs.quiet.from)
             form.quietTo = AppModel.clock(model.notifyPrefs.quiet.to)
@@ -107,6 +133,11 @@ struct SettingsView: View {
         model.notifyPrefs.quiet.to = to
         form.quietFrom = AppModel.clock(from)
         form.quietTo = AppModel.clock(to)
+    }
+
+    private func applyHost() {
+        form.hostInvalid = !forward.setHost(form.hostText)
+        if !form.hostInvalid { form.hostText = forward.host }
     }
 
     private func apply() {

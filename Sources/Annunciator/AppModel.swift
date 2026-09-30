@@ -29,6 +29,9 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(linkPreference.rawValue, forKey: "linkPreference") }
     }
 
+    /// The launchd SSH forward (ATC-204); does nothing while its host is empty.
+    let forward = ForwardMonitor()
+
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
     private var radioTask: Task<Void, Never>?
@@ -58,6 +61,7 @@ final class AppModel: ObservableObject {
         let feed = LiveFeed(client: ATCClient(baseURL: baseURL)) { [weak self] state in
             Task { @MainActor in
                 self?.feed = state
+                if state.connection == .unreachable { self?.forward.refresh() }
                 self?.notify(state)
                 self?.onFeedChange?()
             }

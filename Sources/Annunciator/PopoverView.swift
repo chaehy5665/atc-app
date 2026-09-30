@@ -24,6 +24,7 @@ struct PopoverView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
+                if panel.notice == PanelContent.unreachableNotice { ForwardLineView(forward: model.forward) }
                 Spacer(minLength: 0)
             } else {
                 strip(panel)
@@ -266,6 +267,32 @@ struct PopoverView: View {
         case .warning: return .red
         case .caution: return .orange
         case .advisory: return .gray
+        }
+    }
+}
+
+
+/// While atc is unreachable and a host is set: the forward's state and its one matching button (ATC-204).
+/// Its own view, so it follows `ForwardMonitor` (a separate ObservableObject).
+struct ForwardLineView: View {
+    @ObservedObject var forward: ForwardMonitor
+
+    var body: some View {
+        if let state = forward.state {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(state.line).font(.caption.monospaced()).foregroundStyle(.secondary)
+                if !state.hint.isEmpty {
+                    Text(state.hint).font(.caption).foregroundStyle(.secondary)
+                }
+                if let title = state.action.title {
+                    Button(title) { forward.perform(state.action) }.disabled(forward.busy)
+                }
+                if !forward.error.isEmpty {
+                    Text(forward.error).font(.caption).foregroundStyle(.red)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
         }
     }
 }

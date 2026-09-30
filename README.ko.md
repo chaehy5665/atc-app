@@ -17,7 +17,9 @@ atc를 읽기만 합니다. 승인과 스위치는 atc 화면에서 합니다.
 
 ## 연결
 
-atc는 도는 컴퓨터의 `127.0.0.1:7700`에만 듣습니다. Mac에서는 SSH 로컬 포워딩을 켜 둡니다(`ssh -N -L 7700:127.0.0.1:7700 <호스트>`, 또는 atc의 `docs/guide/menubar.md`에 있는 launchd 에이전트). 앱은 `http://localhost:7700`에만 말하고 포트를 열지 않습니다. atc를 LAN에 열지 마세요. atc에는 로그인이 없습니다.
+atc는 도는 컴퓨터의 `127.0.0.1:7700`에만 듣습니다. Mac에서는 SSH 로컬 포워딩을 켜 둡니다(`ssh -N -L 7700:127.0.0.1:7700 <호스트>`, 또는 atc의 `docs/guide/menubar.md`에 있는 launchd 에이전트). 앱은 `http://localhost:7700`에만 말하고 포트를 열지 않습니다.
+
+앱이 이 포워드를 만들고 지켜볼 수도 있습니다(ATC-204). 설정의 **SSH 호스트**에 SSH 대상(`host` 또는 `user@host`, 영문·숫자·`.`·`_`·`-`만)을 넣으세요. **설치/복구**는 `~/Library/LaunchAgents/dev.atc.forward.plist`를 쓰고(`/usr/bin/ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o BatchMode=yes -L 7700:127.0.0.1:7700 <호스트>`, `RunAtLoad`, `KeepAlive`) `launchctl bootstrap gui/<uid>`로 올리고, **다시 시작**은 `launchctl kickstart -k`를 씁니다. atc에 닿지 않는 동안 팝오버가 포워드 상태와 맞는 버튼을 보여 줍니다. 7700을 이미 다른 것(손으로 연 `ssh -L`, 편집기의 포트 포워딩)이 쓰고 있으면 PID와 명령을 알려 주고 건드리지 않습니다. 기본은 빈칸이고, 비어 있으면 앱은 아무것도 하지 않습니다. `sudo`를 쓰지 않고 plist에 키·암호를 넣지 않습니다. `BatchMode=yes`라서 암호가 있는 키는 바로 실패하니 키체인에 넣으세요(`ssh-add --apple-use-keychain <키>`). atc에는 GET과 SSE만 보내고, `launchctl`·`lsof`는 Mac에서 로컬로 돕니다. 확인 목록: [docs/mac-checklist-forward.md](docs/mac-checklist-forward.md). atc를 LAN에 열지 마세요. atc에는 로그인이 없습니다.
 
 ## 빌드와 실행 (Mac)
 
