@@ -32,7 +32,7 @@ open ~/Applications/Annunciator.app
 1. Keep the SSH forward to atc up (see above). The atc that serves `/api/supervisor-summary` (ATC-153) must be deployed.
 2. Run `Tools/build-app.sh` (needs the Xcode command line tools). With Command Line Tools only, the app must not use SwiftUI macros (`@State`, `#Preview`, …), which need Xcode's plugin; `ObservableObject` and `@ObservedObject` are fine. `Tools/test-linux.sh` checks this.
 3. Open the app. `✈ —` in grey means atc is unreachable; it reconnects by itself (1 s backoff, doubling to 30 s).
-4. Click the item for the popover. **Settings…** sets the atc URL (default `http://localhost:7700`) and launch at login.
+4. Click the item for the popover: a fixed strip (MASTER WARNING, MASTER CAUTION and ADVISORY counts, PENDING and NEEDS YOU chips, FUEL bars, one line for RTS and working counts) above a scrolling list of LAMPs (WARNING always open, CAUTION shows the first 5, ADVISORY folded; the choice is remembered) with each LAMP's age. The gear button (⌘,) opens Settings. Settings sets the atc URL (default `http://localhost:7700`) and launch at login.
 
 A locally built app carries no quarantine flag, so it opens without a Developer ID.
 

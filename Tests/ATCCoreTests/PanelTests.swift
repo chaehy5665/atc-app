@@ -149,8 +149,8 @@ final class PanelTests: XCTestCase {
         XCTAssertEqual(p.rts, "RTS OK 0e28276 → d5c6346 · 03:22Z")
         XCTAssertEqual(p.fuelLabel, "account-a")
         XCTAssertEqual(p.fuel, [
-            FuelRow(name: "5h", used: "6%", resets: "07:50Z"),
-            FuelRow(name: "7d", used: "65%", resets: "10:00Z"),
+            FuelRow(name: "5h", used: "6%", resets: "07:50Z", fraction: 0.06),
+            FuelRow(name: "7d", used: "65%", resets: "10:00Z", fraction: 0.65),
         ])
         XCTAssertEqual(p.workingAircraft, 3)
         XCTAssertEqual(p.workingControl, 2)

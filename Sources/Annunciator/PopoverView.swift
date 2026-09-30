@@ -3,32 +3,119 @@ import ATCCore
 import AppKit
 import SwiftUI
 
+/// Layout only: order, folding, chips, age and height come from ATCCore (`PanelContent`, `PanelLayout`).
+/// Server text is shown as is; it is cut with `lineLimit` and the full text is the tooltip.
 struct PopoverView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var state: PopoverState
     var openSettings: () -> Void
 
     var body: some View {
-        let panel = model.panel
+        // Re-evaluated every minute so the ages keep moving without a feed change.
+        TimelineView(.everyMinute) { context in
+            content(PanelContent(model.feed, base: model.baseURL, now: context.date))
+        }
+    }
+
+    private func content(_ panel: PanelContent) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let notice = panel.notice {
                 Text(notice)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
+                Spacer(minLength: 0)
             } else {
+                strip(panel)
+                Divider()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
                         lamps(panel)
-                        pending(panel)
-                        status(panel)
                     }
-                    .padding(14)
+                    .padding(12)
                 }
             }
             Divider()
             footer
         }
-        .frame(width: 420, height: 520)
+        .frame(width: PanelLayout.width, height: PanelLayout.height(for: panel, expansion: state.expansion))
+    }
+
+    // MARK: Fixed strip
+
+    @ViewBuilder private func strip(_ panel: PanelContent) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(panel.tiles) { tile in
+                    tileView(tile)
+                }
+            }
+            if !panel.pending.isEmpty || !panel.needsYouChips.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(panel.pending) { row in
+                            Button { open(row.url) } label: {
+                                Text("\(row.title) \(row.count)").font(.caption.monospaced())
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(Capsule().fill(Color.primary.opacity(0.10)))
+                            }
+                            .buttonStyle(.plain)
+                            .help("\(row.title) — atc에서 열기")
+                        }
+                        if !panel.needsYouChips.isEmpty {
+                            // Own style (accent colour), so it is never mistaken for a CAUTION.
+                            Text("NEEDS YOU").font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
+                            ForEach(panel.needsYouChips) { chip in
+                                Button { open(chip.url) } label: {
+                                    Text(chip.name).font(.caption.monospaced())
+                                        .padding(.horizontal, 8).padding(.vertical, 3)
+                                        .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+                                        .overlay(Capsule().stroke(Color.accentColor, lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .help("\(chip.name) — atc에서 열기")
+                            }
+                        }
+                    }
+                }
+            }
+            ForEach(panel.fuel) { w in
+                HStack(spacing: 8) {
+                    Text(w.name).font(.caption.monospaced()).frame(width: 34, alignment: .leading)
+                    fuelBar(w.fraction)
+                    Text(w.detail).font(.caption.monospaced()).foregroundStyle(.secondary)
+                        .frame(width: 120, alignment: .trailing)
+                }
+            }
+            Text(panel.statusLine).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                .help(panel.statusLine)
+        }
+        .padding(12)
+    }
+
+    private func tileView(_ tile: AnnunciatorTile) -> some View {
+        let tint = color(tile.level)
+        return VStack(spacing: 2) {
+            Text(tile.label).font(.caption2.weight(.bold)).lineLimit(1).minimumScaleFactor(0.7)
+            Text("\(tile.count)").font(.title2.monospaced().weight(.bold))
+        }
+        .foregroundStyle(tile.isLit ? tint : Color.secondary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 6).fill(tile.isLit ? tint.opacity(0.18) : Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(tile.isLit ? tint : Color.secondary.opacity(0.3), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(tile.label) \(tile.count)")
+    }
+
+    private func fuelBar(_ fraction: Double?) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.12))
+                Capsule().fill(Color.accentColor).frame(width: geo.size.width * (fraction ?? 0))
+            }
+        }
+        .frame(height: 6)
     }
 
     // MARK: Lamps
@@ -38,112 +125,137 @@ struct PopoverView: View {
             Text("켜진 LAMP 없음").foregroundStyle(.secondary)
         }
         ForEach(panel.sections) { section in
-            VStack(alignment: .leading, spacing: 4) {
-                header("\(section.title) · \(section.rows.count)", color: color(section.level))
-                ForEach(section.rows) { row in
-                    Button { open(row.url) } label: { lamp(row) }
-                        .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private func lamp(_ row: LampRow) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle().fill(color(row.level)).frame(width: 8, height: 8).padding(.top, 5)
+            let expanded = state.expansion.isExpanded(section.level)
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.text).font(.callout).lineLimit(3).multilineTextAlignment(.leading)
-                if let place = row.place { Text(place).font(.caption).foregroundStyle(.secondary) }
-                if let next = row.next { Text("→ \(next)").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
-            }
-            Spacer(minLength: 0)
-        }
-        .contentShape(Rectangle())
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: Pending
-
-    @ViewBuilder private func pending(_ panel: PanelContent) -> some View {
-        if !panel.pending.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                header("PENDING", color: .secondary)
-                ForEach(panel.pending) { row in
-                    Button { open(row.url) } label: {
-                        HStack {
-                            Text(row.title)
-                            Spacer()
-                            Text("\(row.count)").monospacedDigit()
-                        }
-                        .contentShape(Rectangle())
+                sectionHeader(section, expanded: expanded)
+                ForEach(section.visibleRows(expanded: expanded)) { row in
+                    lampRow(row)
+                }
+                if let label = section.toggleLabel(expanded: expanded) {
+                    Button { state.toggle(section.level) } label: {
+                        Text(label).font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(.plain)
+                    .padding(.leading, 6)
                 }
             }
         }
     }
 
-    // MARK: RTS, FUEL, working
+    @ViewBuilder private func sectionHeader(_ section: LampSection, expanded: Bool) -> some View {
+        let label = Text(section.header).font(.caption.weight(.bold)).foregroundStyle(color(section.level))
+        if LampFold.isCollapsible(section.level) {
+            Button { state.toggle(section.level) } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.caption2)
+                    label
+                }
+                .foregroundStyle(color(section.level))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(expanded ? "접기" : "펼치기")
+        } else {
+            label
+        }
+    }
 
-    @ViewBuilder private func status(_ panel: PanelContent) -> some View {
-        if panel.hasSummary {
-            if let rts = panel.rts {
-                VStack(alignment: .leading, spacing: 4) {
-                    header("RTS", color: .secondary)
-                    Text(rts).font(.callout).monospacedDigit()
-                }
-            }
-            if !panel.fuel.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    header("FUEL" + (panel.fuelLabel.map { " · \($0)" } ?? ""), color: .secondary)
-                    ForEach(panel.fuel) { w in
-                        HStack {
-                            Text(w.name)
-                            Spacer()
-                            Text(w.used).monospacedDigit()
-                            if let resets = w.resets {
-                                Text("reset \(resets)").font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                            }
+    private func lampRow(_ row: LampRow) -> some View {
+        let hovered = state.hoveredRow == row.id
+        let showNext = row.next != nil && (hovered || state.openRows.contains(row.id))
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Button { open(row.url) } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(row.chip).font(.caption2.monospaced().weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 16, height: 16)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(color(row.level)))
+                        if let place = row.place {
+                            Text(place).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                         }
+                        Text(row.text).font(.callout).lineLimit(2).multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                        if hovered { Text("↗").foregroundStyle(.secondary) }
+                        if let age = row.age { Text(age).font(.caption.monospaced()).foregroundStyle(.secondary) }
                     }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(row.text)
+                .accessibilityLabel(accessibilityLabel(row))
+                .accessibilityHint("atc에서 엽니다")
+                if row.next != nil {
+                    Button { state.toggleRow(row.id) } label: {
+                        Image(systemName: state.openRows.contains(row.id) ? "chevron.up" : "chevron.down").font(.caption2)
+                    }
+                    .buttonStyle(.plain)
+                    .help("다음 단계 보기")
+                    .accessibilityLabel("다음 단계")
                 }
             }
-            VStack(alignment: .leading, spacing: 4) {
-                header("WORKING", color: .secondary)
-                Text("AIRCRAFT \(panel.workingAircraft) · 관제 세션 \(panel.workingControl)").font(.callout)
-                if !panel.needsYou.isEmpty {
-                    Text("NEEDS YOU: " + panel.needsYou.joined(separator: ", "))
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.orange)
-                }
+            if showNext, let next = row.next {
+                Text("→ \(next)").font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                    .padding(.leading, 22)
             }
         }
+        .padding(.horizontal, 6).padding(.vertical, 3)
+        .background(RoundedRectangle(cornerRadius: 5).fill(hovered ? Color.primary.opacity(0.08) : Color.clear))
+        .onHover { inside in
+            if inside {
+                state.hoveredRow = row.id
+                NSCursor.pointingHand.push()
+            } else {
+                if state.hoveredRow == row.id { state.hoveredRow = nil }
+                NSCursor.pop()
+            }
+        }
+    }
+
+    private func accessibilityLabel(_ row: LampRow) -> String {
+        [row.level.rawValue.uppercased(), row.place, row.text, row.age.map { "\($0) 전" }, row.next.map { "다음: \($0)" }]
+            .compactMap { $0 }.joined(separator: ", ")
     }
 
     // MARK: Footer
 
     private var footer: some View {
-        HStack {
-            Button("Open atc") { open(ATCLink.url(base: model.baseURL, link: nil)) }
-            Button("Refresh") { model.refresh() }
+        HStack(spacing: 10) {
+            Button { open(ATCLink.url(base: model.baseURL, link: nil)) } label: { Text("Open atc ↗") }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
             Spacer()
-            Button("Settings…") { openSettings() }
-            Button("Quit") { NSApp.terminate(nil) }
+            Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(.borderless)
+                .keyboardShortcut("r", modifiers: .command)
+                .help("Refresh (⌘R)")
+                .accessibilityLabel("Refresh")
+            Button { openSettings() } label: { Image(systemName: "gearshape") }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(",", modifiers: .command)
+                .help("Settings (⌘,)")
+                .accessibilityLabel("Settings")
+            Menu {
+                Button("Quit ANNUNCIATOR") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q", modifiers: .command)
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("More")
+            .accessibilityLabel("More")
         }
         .padding(10)
     }
 
     // MARK: Helpers
 
-    private func header(_ text: String, color: Color) -> some View {
-        Text(text).font(.caption.weight(.bold)).foregroundStyle(color)
-    }
-
+    /// The two lamp colours; ADVISORY is grey.
     private func color(_ level: AlertLevel) -> Color {
         switch level {
         case .warning: return .red
         case .caution: return .orange
-        case .advisory: return .secondary
+        case .advisory: return .gray
         }
     }
 
