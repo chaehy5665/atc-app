@@ -83,12 +83,13 @@ public enum PanelLayout {
     public static let minHeight = 240.0
     public static let maxHeight = 640.0
 
-    static let strip = 64.0, chips = 34.0, fuelRow = 22.0, statusLine = 22.0, footer = 46.0
+    static let strip = 64.0, chips = 34.0, fuelRow = 22.0, statusLine = 22.0, footer = 46.0, radioLine = 22.0
     static let sectionHeader = 26.0, lampRow = 38.0, toggle = 26.0, padding = 24.0
 
-    public static func height(for panel: PanelContent, expansion: LampExpansion) -> Double {
+    public static func height(for panel: PanelContent, expansion: LampExpansion, radioLine hasRadio: Bool = false) -> Double {
         guard panel.notice == nil else { return minHeight }
         var h = strip + statusLine + footer + padding
+        if hasRadio { h += radioLine }
         if !panel.pending.isEmpty || !panel.needsYouChips.isEmpty { h += chips }
         h += Double(panel.fuel.count) * fuelRow
         for section in panel.sections {

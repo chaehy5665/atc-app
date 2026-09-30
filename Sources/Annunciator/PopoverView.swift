@@ -38,7 +38,9 @@ struct PopoverView: View {
             Divider()
             footer
         }
-        .frame(width: PanelLayout.width, height: PanelLayout.height(for: panel, expansion: state.expansion))
+        .frame(
+            width: PanelLayout.width,
+            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on))
     }
 
     // MARK: Fixed strip
@@ -89,6 +91,14 @@ struct PopoverView: View {
             }
             Text(panel.statusLine).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 .help(panel.statusLine)
+            if let hint = RadioHint(model.radio) {
+                HStack(spacing: 6) {
+                    Text(hint.title).font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
+                    Text(hint.detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                        .help(hint.detail)
+                }
+                .accessibilityElement(children: .combine)
+            }
         }
         .padding(12)
     }

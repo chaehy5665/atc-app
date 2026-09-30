@@ -34,6 +34,18 @@ open ~/Applications/Annunciator.app
 3. 앱을 엽니다. 회색 `✈ —`는 atc에 닿지 않는다는 뜻이고, 스스로 다시 연결합니다(1초부터 두 배씩, 최대 30초).
 4. 항목을 누르면 팝오버가 열립니다. 위쪽 고정 띠(MASTER WARNING·MASTER CAUTION·ADVISORY 개수, PENDING·NEEDS YOU 칩, FUEL 막대, RTS와 작업 수 한 줄) 아래에 LAMP 목록이 스크롤됩니다(WARNING은 항상 펼침, CAUTION은 처음 5개, ADVISORY는 접힘이고 선택은 기억합니다). LAMP마다 경과 시간이 붙습니다. 톱니 버튼(⌘,)의 설정에서 atc URL(기본 `http://localhost:7700`)과 로그인 시 실행을 정합니다.
 
+## RADIO monitor
+
+설정의 **RADIO monitor** 스위치(기본 꺼짐)를 켜면 atc RADIO의 주파수 하나(기본 `TOWER`, `DELIVERY`·`GROUND`·`COMPANY`도 가능)를 브라우저 탭 없이 앱이 재생합니다.
+
+- **소음:** 브라우저와 같은 선택: 호출만(기본), 답 없는 호출만, 전부.
+- **재생:** 앱이 `topics=radio` SSE 연결을 따로 열고, 새 무전마다 `GET /api/radio/<id>.wav`(atc가 문구 템플릿으로 만든 음성. 앱은 자유 텍스트로 음성을 만들지 않습니다)를 받아 한 번에 하나씩 재생합니다. 큐는 5개까지이고 넘치면 오래된 것부터 버립니다.
+- **알림이 먼저:** WARNING·CALL의 소리나 음성이 나오면 RADIO는 멈추고 알림이 끝나면 이어갑니다. 조용한 시간(알림과 같은 설정)에는 RADIO도 재생하지 않고 대기분을 버립니다.
+- **다시 재생 안 함:** 켠 뒤, 또는 마지막 (재)연결 뒤에 기록된 무전만 듣습니다. atc에 닿지 않는 동안은 재생하지 않고, 돌아와도 그 사이 무전은 재생하지 않습니다. 나중에 응답이 붙은 호출을 두 번 재생하지 않습니다.
+- **팝오버:** 켜져 있는 동안 상태 줄 아래에 `RADIO ● TOWER` 줄이 마지막 무전의 head(`TOWER → GOLF · GO AROUND · ATC-147`)를 보입니다. 메뉴 막대 제목은 바뀌지 않습니다.
+- 설정은 UserDefaults(`radio.on`, `radio.freq`, `radio.noise`)에 저장합니다. 앱은 atc를 읽기만 합니다(GET, SSE).
+- 앱이 재생하는 동안 브라우저 RADIO 탭의 LISTEN은 꺼 두세요. 켜 두면 두 번 들립니다.
+
 Mac에서 직접 빌드한 앱에는 격리(quarantine) 표시가 없어 Developer ID 없이 열립니다.
 
 코어 테스트는 `Tools/test-linux.sh`(Docker)로 Linux에서 돕니다.

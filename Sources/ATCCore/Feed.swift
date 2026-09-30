@@ -29,7 +29,7 @@ public struct FeedReducer: Sendable {
             state.alerts = e.items
             state.alertsLoaded = true
         case .summary(let s): state.summary = s
-        case .version, .ping, .other: break
+        case .version, .radio, .ping, .other: break
         }
     }
 

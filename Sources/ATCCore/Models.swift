@@ -273,6 +273,7 @@ public enum ATCEvent: Equatable, Sendable {
     case alert(AlertEvent)
     case summary(SupervisorSummary)
     case version(VersionInfo)
+    case radio([RadioTransmission])
     case ping
     /// `snapshot` and anything else this build doesn't use.
     case other(String)
@@ -284,6 +285,7 @@ public enum ATCEvent: Equatable, Sendable {
         case "alert": self = .alert(try decoder.decode(AlertEvent.self, from: body))
         case "summary": self = .summary(try ATCDecoding.summary(from: body))
         case "version": self = .version(try decoder.decode(VersionInfo.self, from: body))
+        case "radio": self = .radio(try ATCDecoding.radio(from: body))
         case "ping": self = .ping
         default: self = .other(event.name)
         }

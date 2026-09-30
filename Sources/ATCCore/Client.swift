@@ -36,6 +36,12 @@ public struct ATCClient {
         try ATCDecoding.summary(from: try await get(request("/api/supervisor-summary")))
     }
 
+    /// The newest transmissions on one frequency, oldest first. Only the hint uses it; nothing from it is played.
+    public func radio(freq: RadioFreq, limit: Int = 1) async throws -> [RadioTransmission] {
+        let query = [URLQueryItem(name: "freq", value: freq.rawValue), URLQueryItem(name: "limit", value: String(limit))]
+        return try ATCDecoding.radio(from: try await get(request("/api/radio", query: query)))
+    }
+
     /// The event stream. It ends with an error when the connection drops;
     /// the caller decides when to reconnect (see `Backoff`, `Watchdog`).
     public func events(topics: String = ATCClient.eventTopics, lastEventID: String? = nil) -> AsyncThrowingStream<ATCEvent, Error> {

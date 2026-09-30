@@ -59,6 +59,18 @@ struct SettingsView: View {
             Text("브라우저의 atc 화면에서 설정의 소리(음성)를 꺼 두세요. 앱과 브라우저가 함께 울리면 두 번 들립니다.")
                 .font(.caption).foregroundStyle(.secondary)
             Divider()
+            Toggle("RADIO monitor (atc 무전을 앱에서 재생)", isOn: radioBinding(\.on))
+            Picker("주파수", selection: radioBinding(\.freq)) {
+                ForEach(RadioFreq.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .disabled(!model.radioPrefs.on)
+            Picker("소음", selection: radioBinding(\.noise)) {
+                ForEach(RadioNoise.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .disabled(!model.radioPrefs.on)
+            Text("켠 뒤에 오는 무전만 재생합니다. WARNING·CALL 알림이 울리면 알림이 먼저이고, 조용한 시간에는 재생하지 않습니다. 브라우저 RADIO 탭의 LISTEN을 켜 두면 두 번 들립니다.")
+                .font(.caption).foregroundStyle(.secondary)
+            Divider()
             Toggle("Launch at login", isOn: $form.launchAtLogin)
                 .onChange(of: form.launchAtLogin) { _, on in
                     model.setLaunchAtLogin(on)
@@ -79,6 +91,10 @@ struct SettingsView: View {
 
     private func prefBinding(_ path: WritableKeyPath<NotifyPrefs, Bool>) -> Binding<Bool> {
         Binding(get: { model.notifyPrefs[keyPath: path] }, set: { model.notifyPrefs[keyPath: path] = $0 })
+    }
+
+    private func radioBinding<T>(_ path: WritableKeyPath<RadioPrefs, T>) -> Binding<T> {
+        Binding(get: { model.radioPrefs[keyPath: path] }, set: { model.radioPrefs[keyPath: path] = $0 })
     }
 
     private func applyQuiet() {

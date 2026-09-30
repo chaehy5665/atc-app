@@ -18,6 +18,12 @@ final class AppModel: ObservableObject {
         didSet { Self.save(notifyPrefs) }
     }
 
+    /// RADIO monitor switches (off by default); changing one saves it and restarts the monitor.
+    @Published var radioPrefs: RadioPrefs {
+        didSet { Self.save(radioPrefs); applyRadio() }
+    }
+    /// The monitor state, for the popover hint.
+    @Published private(set) var radio = RadioMonitor()
     /// Where click-throughs open: the atc window (default) or the browser (D10).
     @Published var linkPreference: LinkPreference {
         didSet { UserDefaults.standard.set(linkPreference.rawValue, forKey: "linkPreference") }
@@ -25,6 +31,9 @@ final class AppModel: ObservableObject {
 
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
+    private var radioTask: Task<Void, Never>?
+    private var radioStream: RadioStream?
+    private let radioOutput = RadioOutput()
     private var notifier = AlertNotifier()
     private let output = AlertOutput()
 
@@ -33,6 +42,12 @@ final class AppModel: ObservableObject {
         baseURL = ATCSettings.normalizeURL(saved) ?? ATCSettings.normalizeURL(ATCSettings.defaultURLString)!
         notifyPrefs = Self.loadPrefs()
         linkPreference = UserDefaults.standard.string(forKey: "linkPreference").flatMap(LinkPreference.init(rawValue:)) ?? .window
+        radioPrefs = Self.loadRadioPrefs()
+        // An alert tone or voice wins: RADIO stops when one starts and goes on after it.
+        output.onBusyChanged = { [weak self] busy in
+            guard let self else { return }
+            if busy { self.radioOutput.stop() } else { self.pumpRadio() }
+        }
     }
 
     func start() {
@@ -49,6 +64,7 @@ final class AppModel: ObservableObject {
         }
         live = feed
         task = Task.detached { await feed.run() }
+        applyRadio()
         onFeedChange?()
     }
 
@@ -59,7 +75,55 @@ final class AppModel: ObservableObject {
 
     /// After wake or a network change: drop the old connection so the feed reconnects with its backoff.
     /// The last seen alert keys are kept, so what was raised while away notifies once.
-    func reconnectNow() { live?.dropConnection() }
+    func reconnectNow() {
+        live?.dropConnection()
+        radioStream?.dropConnection()
+    }
+
+    // MARK: RADIO monitor
+
+    /// (Re)starts the `radio` stream for the current switches, or stops it. Its own connection: alerts don't depend on it.
+    private func applyRadio() {
+        radioTask?.cancel()
+        radioTask = nil
+        radioStream = nil
+        radioOutput.stop()
+        radio.configure(radioPrefs, now: Date())
+        guard radioPrefs.on else { return }
+        let client = ATCClient(baseURL: baseURL)
+        let freq = radioPrefs.freq
+        let stream = RadioStream(
+            client: client,
+            onUp: { [weak self] in
+                Task { @MainActor in
+                    self?.radio.connect(now: Date())
+                    // The hint starts from the newest transmission on the frequency; it is never played.
+                    if let items = try? await client.radio(freq: freq), self?.radioPrefs.freq == freq { self?.radio.seed(items) }
+                }
+            },
+            onDown: { [weak self] in
+                Task { @MainActor in
+                    self?.radio.disconnect()
+                    self?.radioOutput.stop()
+                }
+            },
+            onItems: { [weak self] items in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.radio.ingest(items, quiet: self.notifyPrefs.quiet.contains(Date()))
+                    self.pumpRadio()
+                }
+            })
+        radioStream = stream
+        radioTask = Task.detached { await stream.run() }
+    }
+
+    /// Starts the next queued transmission when nothing else is sounding.
+    private func pumpRadio() {
+        guard !radioOutput.isPlaying else { return }
+        guard let next = radio.next(alertBusy: output.isBusy, quiet: notifyPrefs.quiet.contains(Date())) else { return }
+        radioOutput.play(next, base: baseURL) { [weak self] in self?.pumpRadio() }
+    }
 
     // MARK: Notifications and sound
 
@@ -94,6 +158,18 @@ final class AppModel: ObservableObject {
         d.set(p.quiet.on, forKey: "notify.quiet.on")
         d.set(clock(p.quiet.from), forKey: "notify.quiet.from")
         d.set(clock(p.quiet.to), forKey: "notify.quiet.to")
+    }
+
+    private static func loadRadioPrefs() -> RadioPrefs {
+        let d = UserDefaults.standard
+        return RadioPrefs(on: d.bool(forKey: "radio.on"), freq: d.string(forKey: "radio.freq"), noise: d.string(forKey: "radio.noise"))
+    }
+
+    private static func save(_ p: RadioPrefs) {
+        let d = UserDefaults.standard
+        d.set(p.on, forKey: "radio.on")
+        d.set(p.freq.rawValue, forKey: "radio.freq")
+        d.set(p.noise.rawValue, forKey: "radio.noise")
     }
 
     static func clock(_ minutes: Int) -> String { String(format: "%02d:%02d", minutes / 60, minutes % 60) }
