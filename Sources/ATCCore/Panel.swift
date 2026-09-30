@@ -75,6 +75,32 @@ public struct StatusBarTitle: Equatable, Sendable {
     }
 }
 
+// MARK: - Height
+
+/// Popover height that fits the content. An estimate, so it can be tested; the lamp list scrolls the rest.
+public enum PanelLayout {
+    public static let width = 420.0
+    public static let minHeight = 240.0
+    public static let maxHeight = 640.0
+
+    static let strip = 64.0, chips = 34.0, fuelRow = 22.0, statusLine = 22.0, footer = 46.0
+    static let sectionHeader = 26.0, lampRow = 38.0, toggle = 26.0, padding = 24.0
+
+    public static func height(for panel: PanelContent, expansion: LampExpansion) -> Double {
+        guard panel.notice == nil else { return minHeight }
+        var h = strip + statusLine + footer + padding
+        if !panel.pending.isEmpty || !panel.needsYouChips.isEmpty { h += chips }
+        h += Double(panel.fuel.count) * fuelRow
+        for section in panel.sections {
+            let expanded = expansion.isExpanded(section.level)
+            h += sectionHeader + Double(section.visibleRows(expanded: expanded).count) * lampRow
+            if section.toggleLabel(expanded: expanded) != nil { h += toggle }
+        }
+        if panel.sections.isEmpty { h += sectionHeader }
+        return min(maxHeight, max(minHeight, h))
+    }
+}
+
 // MARK: - Links
 
 public enum ATCLink {
@@ -98,6 +124,59 @@ public struct LampRow: Equatable, Sendable, Identifiable {
     public var next: String?
     public var url: URL?
     public var since: Date?
+    /// "W", "C" or "A": the level as a letter, so the row doesn't rely on colour alone.
+    public var chip: String
+    /// "4m", "3h", "2d" from `since`; nil when the server sent none.
+    public var age: String?
+}
+
+/// "4m", "3h", "2d": how long ago, rounded down to one unit.
+public enum AgeFormat {
+    public static func short(since: Date, now: Date) -> String {
+        let secs = max(0, Int(now.timeIntervalSince(since)))
+        if secs < 60 { return "<1m" }
+        if secs < 3_600 { return "\(secs / 60)m" }
+        if secs < 86_400 { return "\(secs / 3_600)h" }
+        return "\(secs / 86_400)d"
+    }
+}
+
+/// Which lamps a section shows. WARNING is always all of them, CAUTION the first `cautionLimit`
+/// until expanded, ADVISORY none until expanded (the header carries the count).
+public enum LampFold {
+    public static let cautionLimit = 5
+
+    /// Rows shown for `level` with `total` lamps.
+    public static func visibleCount(level: AlertLevel, total: Int, expanded: Bool) -> Int {
+        if expanded { return total }
+        switch level {
+        case .warning: return total
+        case .caution: return min(total, cautionLimit)
+        case .advisory: return 0
+        }
+    }
+
+    /// WARNING can't be collapsed.
+    public static func isCollapsible(_ level: AlertLevel) -> Bool { level != .warning }
+}
+
+/// Which sections the user expanded. Persisted as the raw level names.
+public struct LampExpansion: Equatable, Sendable {
+    public private(set) var expanded: Set<AlertLevel>
+
+    /// Nothing is expanded by default: CAUTION shows its first rows and ADVISORY is folded.
+    public init(stored: [String]? = nil) {
+        expanded = Set((stored ?? []).compactMap(AlertLevel.init(rawValue:)).filter(LampFold.isCollapsible))
+    }
+
+    public func isExpanded(_ level: AlertLevel) -> Bool { level == .warning || expanded.contains(level) }
+
+    public mutating func toggle(_ level: AlertLevel) {
+        guard LampFold.isCollapsible(level) else { return }
+        if expanded.contains(level) { expanded.remove(level) } else { expanded.insert(level) }
+    }
+
+    public var stored: [String] { expanded.map(\.rawValue).sorted() }
 }
 
 public struct LampSection: Equatable, Sendable, Identifiable {
@@ -105,6 +184,34 @@ public struct LampSection: Equatable, Sendable, Identifiable {
     public var rows: [LampRow]
     public var id: AlertLevel { level }
     public var title: String { level.rawValue.uppercased() }
+    /// "WARNING 2", "CAUTION 23", "ADVISORY 13".
+    public var header: String { "\(title) \(rows.count)" }
+
+    public func visibleRows(expanded: Bool) -> [LampRow] {
+        Array(rows.prefix(LampFold.visibleCount(level: level, total: rows.count, expanded: expanded)))
+    }
+
+    /// The control that folds or unfolds the rest: "CAUTION 18개 더", "접기"; nil when there is nothing to fold.
+    /// ADVISORY folds behind its header, so it has no separate control.
+    public func toggleLabel(expanded: Bool) -> String? {
+        guard level == .caution, rows.count > LampFold.cautionLimit else { return nil }
+        return expanded ? "접기" : "\(title) \(rows.count - LampFold.cautionLimit)개 더"
+    }
+}
+
+/// One annunciator tile: MASTER WARNING, MASTER CAUTION, ADVISORY.
+public struct AnnunciatorTile: Equatable, Sendable, Identifiable {
+    public var level: AlertLevel
+    public var label: String
+    public var count: Int
+    public var id: AlertLevel { level }
+    public var isLit: Bool { count > 0 }
+}
+
+public struct NeedsYouChip: Equatable, Sendable, Identifiable {
+    public var name: String
+    public var url: URL?
+    public var id: String { name }
 }
 
 public struct PendingRow: Equatable, Sendable, Identifiable {
@@ -128,7 +235,11 @@ public struct FuelRow: Equatable, Sendable, Identifiable {
     public var used: String
     /// "07:50Z"; nil when unknown.
     public var resets: String?
+    /// 0...1 for a bar; nil when the server sent no number.
+    public var fraction: Double?
     public var id: String { name }
+    /// "45% · 07:50Z"; "—" without a number.
+    public var detail: String { [used, resets].compactMap { $0 }.joined(separator: " · ") }
 }
 
 public struct PanelContent: Equatable, Sendable {
@@ -143,13 +254,17 @@ public struct PanelContent: Equatable, Sendable {
     public var workingAircraft = 0
     public var workingControl = 0
     public var needsYou: [String] = []
+    public var needsYouChips: [NeedsYouChip] = []
+    public var tiles: [AnnunciatorTile] = []
+    /// "RTS OK 0e28276 → d5c6346 · 03:22Z · AIRCRAFT 3 · CONTROL 2" (monospaced).
+    public var statusLine = ""
     public var hasSummary = false
 
     public static let connectingNotice = "atc에 연결하는 중…"
     public static let unreachableNotice = "atc 연결 안 됨 — SSH 포워딩을 확인하세요"
     public static let unsupportedNotice = "atc 버전 확인 — 이 앱이 모르는 summary 버전입니다"
 
-    public init(_ feed: FeedState, base: URL) {
+    public init(_ feed: FeedState, base: URL, now: Date = Date()) {
         switch feed.connection {
         case .connecting: notice = Self.connectingNotice
         case .unreachable: notice = Self.unreachableNotice
@@ -162,7 +277,7 @@ public struct PanelContent: Equatable, Sendable {
         let groups = LampGroups(feed.alerts)
         for (level, alerts) in [(AlertLevel.warning, groups.warning), (.caution, groups.caution), (.advisory, groups.advisory)]
         where !alerts.isEmpty {
-            sections.append(LampSection(level: level, rows: alerts.map { Self.row($0, level: level, base: base) }))
+            sections.append(LampSection(level: level, rows: alerts.map { Self.row($0, level: level, base: base, now: now) }))
         }
 
         guard let s = feed.summary else { return }
@@ -185,18 +300,29 @@ public struct PanelContent: Equatable, Sendable {
         }
         fuelLabel = s.fuel?.label
         fuel = (s.fuel?.windows ?? []).map {
-            FuelRow(name: FuelFormat.shortName($0.name), used: $0.pct.map(FuelFormat.percent) ?? "—", resets: $0.resetsAt.map(ZTime.format))
+            FuelRow(
+                name: FuelFormat.shortName($0.name), used: $0.pct.map(FuelFormat.percent) ?? "—",
+                resets: $0.resetsAt.map(ZTime.format), fraction: $0.pct.map { min(1, max(0, $0 / 100)) })
         }
         workingAircraft = s.working?.aircraft ?? 0
         workingControl = s.working?.control ?? 0
         needsYou = s.needsYou
+        // Names are AIRCRAFT; they open the strips tab.
+        needsYouChips = s.needsYou.map { NeedsYouChip(name: $0, url: ATCLink.url(base: base, link: "#strips")) }
+        tiles = [
+            AnnunciatorTile(level: .warning, label: "MASTER WARNING", count: s.counts.warning),
+            AnnunciatorTile(level: .caution, label: "MASTER CAUTION", count: s.counts.caution),
+            AnnunciatorTile(level: .advisory, label: "ADVISORY", count: s.counts.advisory),
+        ]
+        statusLine = ([rts] + ["AIRCRAFT \(workingAircraft)", "CONTROL \(workingControl)"]).compactMap { $0 }.joined(separator: " · ")
     }
 
-    private static func row(_ a: SupervisorAlert, level: AlertLevel, base: URL) -> LampRow {
+    private static func row(_ a: SupervisorAlert, level: AlertLevel, base: URL, now: Date) -> LampRow {
         let place = [a.aircraft.map { "AIRCRAFT \($0)" }, a.flight.map { "FLIGHT \($0)" }].compactMap { $0 }.joined(separator: " · ")
         return LampRow(
             id: a.key, level: level, text: a.text, place: place.isEmpty ? nil : place,
-            next: a.next.flatMap { $0.isEmpty ? nil : $0 }, url: ATCLink.url(base: base, link: a.link), since: a.since)
+            next: a.next.flatMap { $0.isEmpty ? nil : $0 }, url: ATCLink.url(base: base, link: a.link), since: a.since,
+            chip: String(level.rawValue.prefix(1)).uppercased(), age: a.since.map { AgeFormat.short(since: $0, now: now) })
     }
 }
 

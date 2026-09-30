@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
+    private let popoverState = PopoverState()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
@@ -20,8 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
-            rootView: PopoverView(model: model, openSettings: { [weak self] in self?.showSettings() }))
+        let host = NSHostingController(
+            rootView: PopoverView(model: model, state: popoverState, openSettings: { [weak self] in self?.showSettings() }))
+        // The popover follows the content height (PanelLayout: 240...640 pt).
+        host.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = host
 
         model.onFeedChange = { [weak self] in self?.render() }
         render()
