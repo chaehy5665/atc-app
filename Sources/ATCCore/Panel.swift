@@ -41,22 +41,36 @@ public struct StatusBarTitle: Equatable, Sendable {
     }
 
     public var symbol: Symbol
-    /// Text after the symbol: "3  5h 45% · 7d 55%". Empty when there is nothing to add.
+    /// Text after the symbol: "23 +13 5h 45% · 7d 55%". Empty when there is nothing to add.
     public var text: String
-    /// Plain-text form for accessibility and logs.
+    /// Plain-text form for logs.
     public var plain: String
+    /// Spoken form: "WARNING 2, CAUTION 23, advisory 13, 5h 16% · 7d 66%".
+    public var accessibility: String
 
+    /// Same rule as atc's `menubar/format.mjs` `titleOf`: `warning + caution`, then ` +advisory`
+    /// when not zero, then FUEL. The colour comes from the server's `master`, not from the counts.
     public init(_ feed: FeedState) {
         if feed.connection == .live, let summary = feed.summary {
-            let master = MasterState(summary: summary)
-            let parts = [master.count > 0 ? "\(master.count)" : "", FuelFormat.line(summary.fuel)].filter { !$0.isEmpty }
-            symbol = .light(master.light)
-            text = parts.joined(separator: "  ")
-            plain = "✈" + (text.isEmpty ? "" : " " + text)
+            let c = summary.counts
+            let fuel = FuelFormat.line(summary.fuel)
+            var count = "\(c.warning + c.caution)"
+            if c.advisory > 0 { count += " +\(c.advisory)" }
+            symbol = .light(MasterState(summary: summary).light)
+            text = [count, fuel].filter { !$0.isEmpty }.joined(separator: " ")
+            plain = "✈ " + text
+            var spoken: [String] = []
+            if c.warning > 0 { spoken.append("WARNING \(c.warning)") }
+            if c.caution > 0 { spoken.append("CAUTION \(c.caution)") }
+            if c.advisory > 0 { spoken.append("advisory \(c.advisory)") }
+            if spoken.isEmpty { spoken.append("no alerts") }
+            if !fuel.isEmpty { spoken.append(fuel) }
+            accessibility = spoken.joined(separator: ", ")
         } else {
             symbol = .unreachable
             text = "—"
             plain = "✈ —"
+            accessibility = "atc unreachable"
         }
     }
 }

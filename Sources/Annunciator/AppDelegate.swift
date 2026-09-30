@@ -31,28 +31,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func render() {
         guard let button = statusItem.button else { return }
         let title = model.title
-        button.setAccessibilityLabel(title.plain)
+        button.setAccessibilityLabel(title.accessibility)
         switch title.symbol {
         case .unreachable:
             button.image = nil
             button.attributedTitle = NSAttributedString(
                 string: "✈ —", attributes: [.foregroundColor: NSColor.secondaryLabelColor])
         case .light(let light):
-            let name = light == .off ? "airplane" : "circle.fill"
-            let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
-            image?.isTemplate = true
-            button.image = image
-            button.contentTintColor = tint(light)
+            button.image = lightImage(light)
+            button.contentTintColor = nil
             button.attributedTitle = NSAttributedString(string: title.text.isEmpty ? "" : " " + title.text)
         }
     }
 
-    private func tint(_ light: MasterLight) -> NSColor? {
+    /// Lit: a coloured circle that is not a template, so the menu bar keeps its colour.
+    /// Off: the plain airplane as a template, so it follows the light or dark menu bar.
+    private func lightImage(_ light: MasterLight) -> NSImage? {
+        let color: NSColor
         switch light {
-        case .warning: return .systemRed
-        case .caution: return .systemOrange
-        case .off: return nil
+        case .warning: color = .systemRed
+        case .caution: color = .systemOrange
+        case .off:
+            let plane = NSImage(systemSymbolName: "airplane", accessibilityDescription: nil)
+            plane?.isTemplate = true
+            return plane
         }
+        let config = NSImage.SymbolConfiguration(paletteColors: [color])
+        let circle = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(config)
+        circle?.isTemplate = false
+        return circle
     }
 
     @objc private func togglePopover() {
