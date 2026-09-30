@@ -9,7 +9,7 @@ Prerequisites: the SSH forward is up, and the atc on the other end serves `/api/
 
 1. `git pull && Tools/build-app.sh` succeeds, twice in a row. If it fails, paste the compiler errors.
 2. `open ~/Applications/Annunciator.app`: an item appears in the menu bar, no Dock icon.
-3. Title: a filled circle, red when atc has a WARNING and amber for a CAUTION, then the count, then `5h NN% · 7d NN%`. With nothing lit: a plain airplane and the FUEL text only. Compare the numbers with the browser and the SwiftBar plugin.
+3. Title: a filled circle, red when atc has a WARNING and amber for a CAUTION (the colour follows atc's MASTER light), then the count, then `5h NN% · 7d NN%` with one space between the parts. The count is WARNING + CAUTION, the same as the number at the top of the atc screen, followed by ` +N` when there are ADVISORY items (for example `23 +13 5h 16% · 7d 66%`). With the light off: a plain airplane, `0` (or `0 +N`) and the FUEL text. Compare the numbers with the browser and the SwiftBar plugin: they must be equal. Say how the red and amber circle looks in a light and in a dark menu bar, and that the plain airplane turns white or black with the menu bar.
 4. Live: cause a change in atc (or wait) and see the title change without a click and without waiting 15 s.
 5. Popover opens on click and closes on a click outside. Sections read WARNING, CAUTION, ADVISORY, highest first. Each LAMP shows its text, `AIRCRAFT …` / `FLIGHT …` when the server names them, and `→ next step`. The list scrolls when it is long.
 6. Click a LAMP: the default browser opens `http://localhost:7700/<link>` (for example `/#strips`) on the right tab.

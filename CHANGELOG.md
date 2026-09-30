@@ -9,6 +9,8 @@
 
 ### Fixed
 
+- The MASTER light is drawn as a coloured, non-template circle (`systemRed` WARNING, `systemOrange` CAUTION) instead of a tinted template image, which the menu bar showed black; the light-off airplane stays a template (ATC-164).
+- The menu bar count is `warning + caution` then ` +advisory`, as in atc's SwiftBar `titleOf` and the number at the top of the atc screen (it used to add the CAUTION count to WARNING only when the light was amber, and left advisory out). Parts are separated by one space. The accessibility label reads `WARNING 2, CAUTION 23, advisory 13, 5h 16% · 7d 66%` (ATC-164).
 - The app target builds with Command Line Tools only (ATC-163): `main.swift` runs inside `MainActor.assumeIsolated`; Settings keeps its form state in an `ObservableObject` (`SettingsForm`) instead of `@State`. `Tools/test-linux.sh` fails if `Sources/Annunciator` uses `@State` or `#Preview`.
 - The summary model reads `pending.schedule` (ATC-153 as merged, ATC-162). FUEL window names are atc's `five_hour` and `seven_day`, shown as `5h` and `7d`.
 

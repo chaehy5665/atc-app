@@ -36,19 +36,61 @@ final class PanelTests: XCTestCase {
         XCTAssertEqual(FuelFormat.percent(-3), "0%")
     }
 
+    private func feed(_ counts: SupervisorSummary.Counts, master: AlertLevel?, fuel: Bool = true) throws -> FeedState {
+        var f = try live()
+        f.summary?.counts = counts
+        f.summary?.master = master
+        if !fuel { f.summary?.fuel = nil }
+        return f
+    }
+
     func testTitleLive() throws {
         let t = StatusBarTitle(try live())
         XCTAssertEqual(t.symbol, .light(.caution))
-        XCTAssertEqual(t.text, "21  5h 6% · 7d 65%")
-        XCTAssertEqual(t.plain, "✈ 21  5h 6% · 7d 65%")
+        XCTAssertEqual(t.text, "21 +9 5h 6% · 7d 65%")
+        XCTAssertEqual(t.plain, "✈ 21 +9 5h 6% · 7d 65%")
+        XCTAssertEqual(t.accessibility, "CAUTION 21, advisory 9, 5h 6% · 7d 65%")
     }
 
-    func testTitleLightOffKeepsFuel() throws {
-        var feed = try live()
-        feed.summary?.master = nil
-        let t = StatusBarTitle(feed)
+    func testTitleWarningOnly() throws {
+        let t = StatusBarTitle(try feed(.init(warning: 2), master: .warning))
+        XCTAssertEqual(t.symbol, .light(.warning))
+        XCTAssertEqual(t.text, "2 5h 6% · 7d 65%")
+        XCTAssertEqual(t.accessibility, "WARNING 2, 5h 6% · 7d 65%")
+    }
+
+    func testTitleCountIsWarningPlusCautionAndAdvisoryIsSeparate() throws {
+        let t = StatusBarTitle(try feed(.init(warning: 2, caution: 23, advisory: 13), master: .warning))
+        XCTAssertEqual(t.symbol, .light(.warning))
+        XCTAssertEqual(t.text, "25 +13 5h 6% · 7d 65%")
+        XCTAssertEqual(t.accessibility, "WARNING 2, CAUTION 23, advisory 13, 5h 6% · 7d 65%")
+    }
+
+    func testTitleCautionOnly() throws {
+        let t = StatusBarTitle(try feed(.init(caution: 4), master: .caution, fuel: false))
+        XCTAssertEqual(t.symbol, .light(.caution))
+        XCTAssertEqual(t.text, "4")
+        XCTAssertEqual(t.plain, "✈ 4")
+    }
+
+    func testTitleAdvisoryOnlyKeepsLightOff() throws {
+        let t = StatusBarTitle(try feed(.init(advisory: 13), master: .advisory))
         XCTAssertEqual(t.symbol, .light(.off))
-        XCTAssertEqual(t.text, "5h 6% · 7d 65%")
+        XCTAssertEqual(t.text, "0 +13 5h 6% · 7d 65%")
+        XCTAssertEqual(t.accessibility, "advisory 13, 5h 6% · 7d 65%")
+    }
+
+    func testTitleAllZero() throws {
+        let t = StatusBarTitle(try feed(.init(), master: nil))
+        XCTAssertEqual(t.symbol, .light(.off))
+        XCTAssertEqual(t.text, "0 5h 6% · 7d 65%")
+        XCTAssertEqual(t.accessibility, "no alerts, 5h 6% · 7d 65%")
+        XCTAssertEqual(StatusBarTitle(try feed(.init(), master: nil, fuel: false)).text, "0")
+    }
+
+    func testTitleColourFollowsMasterNotCounts() throws {
+        // The server decides the light; the counts only decide the number.
+        XCTAssertEqual(StatusBarTitle(try feed(.init(caution: 3), master: nil)).symbol, .light(.off))
     }
 
     func testTitleUnreachableIsGreyDash() throws {
@@ -58,6 +100,7 @@ final class PanelTests: XCTestCase {
             let t = StatusBarTitle(feed)
             XCTAssertEqual(t.symbol, .unreachable)
             XCTAssertEqual(t.plain, "✈ —")
+            XCTAssertEqual(t.accessibility, "atc unreachable")
         }
         XCTAssertEqual(StatusBarTitle(FeedState()).plain, "✈ —")
     }
@@ -127,7 +170,7 @@ final class PanelTests: XCTestCase {
         let p = PanelContent(feed, base: base)
         XCTAssertNil(p.rts)
         XCTAssertTrue(p.fuel.isEmpty)
-        XCTAssertEqual(StatusBarTitle(feed).text, "21")
+        XCTAssertEqual(StatusBarTitle(feed).text, "21 +9")
     }
 
     func testNoticesHideStaleData() throws {
