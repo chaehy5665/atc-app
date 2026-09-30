@@ -3,6 +3,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Design draft only (ATC-240, D12): `docs/design.md` section 11 proposes GitHub and Linear inside the app with the app's own Keychain tokens (read only first, no merge from the app). The lines it would reverse (sections 2, 3, 9, 10.2 and `CLAUDE.md`) are marked proposed and stay in force until the SUPERVISOR decides. No behaviour changes.
+
 ### Added
 
 - D6 DUTY entry (ATC-234): a `DUTY ●` row in the popover with the state dot of atc's own drawer readout (green `idle`, amber `answering`, red `down` or `blocked`, hidden while DUTY is disabled or the read fails) and a tooltip `DUTY · <account> · context <k>/<cap>k`; a click, or Window > DUTY (⌘D), opens the atc window at `#duty` (the browser under the D10 preference or ⌥). The app reads `GET /api/duty/status` only while the popover is open and once when atc comes back; it does not subscribe to the `duty` SSE topic, sends nothing, and makes no sound or notification for DUTY. ATCCore gains `DutyStatus` and `DutyLamp` and `ATCClient.dutyStatus()`, with tests. `docs/design.md` 10.8, `docs/mac-checklist-d6.md`.
