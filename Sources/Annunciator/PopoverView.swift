@@ -54,7 +54,7 @@ struct PopoverView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(panel.pending) { row in
-                            Button { open(row.url) } label: {
+                            Button { LinkOpener.open(row.url) } label: {
                                 Text("\(row.title) \(row.count)").font(.caption.monospaced())
                                     .padding(.horizontal, 8).padding(.vertical, 3)
                                     .background(Capsule().fill(Color.primary.opacity(0.10)))
@@ -66,7 +66,7 @@ struct PopoverView: View {
                             // Own style (accent colour), so it is never mistaken for a CAUTION.
                             Text("NEEDS YOU").font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
                             ForEach(panel.needsYouChips) { chip in
-                                Button { open(chip.url) } label: {
+                                Button { LinkOpener.open(chip.url) } label: {
                                     Text(chip.name).font(.caption.monospaced())
                                         .padding(.horizontal, 8).padding(.vertical, 3)
                                         .background(Capsule().fill(Color.accentColor.opacity(0.18)))
@@ -164,7 +164,7 @@ struct PopoverView: View {
         let showNext = row.next != nil && (hovered || state.openRows.contains(row.id))
         return VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Button { open(row.url) } label: {
+                Button { LinkOpener.open(row.url) } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(row.chip).font(.caption2.monospaced().weight(.bold))
                             .foregroundStyle(.white)
@@ -220,7 +220,7 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            Button { open(ATCLink.url(base: model.baseURL, link: nil)) } label: { Text("Open atc ↗") }
+            Button { LinkOpener.open(ATCLink.url(base: model.baseURL, link: nil)) } label: { Text("Open atc ↗") }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
             Spacer()
@@ -257,10 +257,5 @@ struct PopoverView: View {
         case .caution: return .orange
         case .advisory: return .gray
         }
-    }
-
-    private func open(_ url: URL?) {
-        guard let url else { return }
-        NSWorkspace.shared.open(url)
     }
 }

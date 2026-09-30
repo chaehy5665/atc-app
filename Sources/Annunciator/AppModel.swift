@@ -13,20 +13,31 @@ final class AppModel: ObservableObject {
     /// Called on the main actor whenever the feed changes.
     var onFeedChange: (() -> Void)?
 
+    /// Notification, tone and voice switches; changing one saves it.
+    @Published var notifyPrefs: NotifyPrefs {
+        didSet { Self.save(notifyPrefs) }
+    }
+
     private var task: Task<Void, Never>?
     private var live: LiveFeed?
+    private var notifier = AlertNotifier()
+    private let output = AlertOutput()
 
     init() {
         let saved = UserDefaults.standard.string(forKey: Self.urlKey) ?? ATCSettings.defaultURLString
         baseURL = ATCSettings.normalizeURL(saved) ?? ATCSettings.normalizeURL(ATCSettings.defaultURLString)!
+        notifyPrefs = Self.loadPrefs()
     }
 
     func start() {
         task?.cancel()
         feed = FeedState()
+        // A new atc (or first start) gets a new baseline: its first list is silent.
+        notifier = AlertNotifier()
         let feed = LiveFeed(client: ATCClient(baseURL: baseURL)) { [weak self] state in
             Task { @MainActor in
                 self?.feed = state
+                self?.notify(state)
                 self?.onFeedChange?()
             }
         }
@@ -39,6 +50,47 @@ final class AppModel: ObservableObject {
         guard let live else { return }
         Task { await live.refresh() }
     }
+
+    /// After wake or a network change: drop the old connection so the feed reconnects with its backoff.
+    /// The last seen alert keys are kept, so what was raised while away notifies once.
+    func reconnectNow() { live?.dropConnection() }
+
+    // MARK: Notifications and sound
+
+    private func notify(_ state: FeedState) {
+        // Only a real list counts; the empty default before the first event would make every key "new".
+        guard state.alertsLoaded else { return }
+        let plan = notifier.update(items: state.alerts, base: baseURL, prefs: notifyPrefs, now: Date())
+        if !plan.isEmpty { output.perform(plan, base: baseURL) }
+    }
+
+    func requestNotificationPermission() { output.requestPermission() }
+    func testAlert() { output.test(base: baseURL) }
+
+    private static func loadPrefs() -> NotifyPrefs {
+        let d = UserDefaults.standard
+        var p = NotifyPrefs()
+        if d.object(forKey: "notify.banner") != nil { p.notifications = d.bool(forKey: "notify.banner") }
+        if d.object(forKey: "notify.sound") != nil { p.sound = d.bool(forKey: "notify.sound") }
+        p.voice = d.bool(forKey: "notify.voice")
+        p.quiet = QuietHours(
+            on: d.bool(forKey: "notify.quiet.on"),
+            from: d.string(forKey: "notify.quiet.from") ?? QuietHours.defaultFrom,
+            to: d.string(forKey: "notify.quiet.to") ?? QuietHours.defaultTo)
+        return p
+    }
+
+    private static func save(_ p: NotifyPrefs) {
+        let d = UserDefaults.standard
+        d.set(p.notifications, forKey: "notify.banner")
+        d.set(p.sound, forKey: "notify.sound")
+        d.set(p.voice, forKey: "notify.voice")
+        d.set(p.quiet.on, forKey: "notify.quiet.on")
+        d.set(clock(p.quiet.from), forKey: "notify.quiet.from")
+        d.set(clock(p.quiet.to), forKey: "notify.quiet.to")
+    }
+
+    static func clock(_ minutes: Int) -> String { String(format: "%02d:%02d", minutes / 60, minutes % 60) }
 
     /// Returns false when `text` isn't a usable atc URL.
     @discardableResult

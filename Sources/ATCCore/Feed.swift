@@ -6,6 +6,9 @@ public struct FeedState: Equatable, Sendable {
     public var connection: Connection = .connecting
     public var summary: SupervisorSummary?
     public var alerts: [SupervisorAlert] = []
+    /// True once an alert list has really arrived (an `alert` event or a GET). Before that `alerts`
+    /// is only the empty default and must not be taken as a baseline for new-key detection.
+    public var alertsLoaded = false
 
     public init() {}
 }
@@ -22,7 +25,9 @@ public struct FeedReducer: Sendable {
     public mutating func apply(_ event: ATCEvent) {
         state.connection = .live
         switch event {
-        case .alert(let e): state.alerts = e.items
+        case .alert(let e):
+            state.alerts = e.items
+            state.alertsLoaded = true
         case .summary(let s): state.summary = s
         case .version, .ping, .other: break
         }
@@ -32,6 +37,7 @@ public struct FeedReducer: Sendable {
     public mutating func apply(summary: SupervisorSummary, alerts: [SupervisorAlert]) {
         state.summary = summary
         state.alerts = alerts
+        state.alertsLoaded = true
     }
 
     /// The stream ended. The last data stays, but the UI hides it while not live.
@@ -47,6 +53,7 @@ public final class LiveFeed: @unchecked Sendable {
     private let onChange: @Sendable (FeedState) -> Void
     private let lock = NSLock()
     private var reducer = FeedReducer()
+    private var current: Task<Void, Error>?
 
     public init(client: ATCClient, onChange: @escaping @Sendable (FeedState) -> Void) {
         self.client = client
@@ -70,8 +77,10 @@ public final class LiveFeed: @unchecked Sendable {
         while !Task.isCancelled {
             update { $0.connecting() }
             let session = Session()
+            let child = Task { try await self.stream(session) }
+            lock.withLock { current = child }
             do {
-                try await stream(session)
+                try await withTaskCancellationHandler { try await child.value } onCancel: { child.cancel() }
             } catch {
                 if Task.isCancelled { return }
                 update { $0.lost(error) }
@@ -80,6 +89,12 @@ public final class LiveFeed: @unchecked Sendable {
             let delay = backoff.nextDelay()
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }
+    }
+
+    /// Ends the open connection so `run` reconnects (with its backoff). For wake and network changes,
+    /// when the old connection is dead but the watchdog has not noticed yet. Keeps the last alerts.
+    public func dropConnection() {
+        lock.withLock { current }?.cancel()
     }
 
     /// One-off GET of both bodies for the Refresh button.
