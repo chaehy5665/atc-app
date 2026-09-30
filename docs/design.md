@@ -61,14 +61,14 @@ Related, in the atc repository: [docs/mac-app.md](https://github.com/chaehy5665/
 - **Popover:** one click opens it, with:
   - the lit items by level, each naming its AIRCRAFT, FLIGHT or STAND;
   - pending DISPATCH decisions, the last RTS, working AIRCRAFT and control sessions (with NEEDS YOU), and the ACCOUNT FUEL windows.
-  - Each item opens the right atc tab in the browser.
+  - Each item opens the right atc tab: in the browser until N7, then in the app's own atc window (section 10).
 - **macOS notifications** for new WARNING and CALL alerts, with the tone and, if VOICE is on, the voice callout WAV from the host.
 - Graceful when atc is unreachable: a grey light, "atc 연결 안 됨 — SSH 포워딩", and it reconnects by itself.
-- Launch at login. No Dock icon.
+- Launch at login. No Dock icon, except while the atc window (N7) is open.
 
 **Non-goals for v1**
 
-- No writes: no ACK, approve, reject or switch from the app. That needs an auth design first (section 7, N5).
+- No writes from the app's own code: no ACK, approve, reject or switch sent by Swift. That needs an auth design first (section 7, N5). The atc web UI hosted in the atc window (N7) is the browser client in a different frame and keeps the browser's access model (section 10.3, D9).
 - No new server state, no telemetry, and no network use beyond the configured atc URL.
 - No per-Mac Claude usage reading (the Vorssaint feature). atc FUEL already covers the host.
 
@@ -146,6 +146,9 @@ atc-app/
 | N4 | Notifications and sound: new WARNING and CALL, the tone, the voice WAV (from `/api/voice/alert`), quiet hours taken from the server's alert settings, a notification click opening the tab | N3 | — | M |
 | N5 | **Design only:** a SUPERVISOR token for write routes (ACK, approve, reject) that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted | D3 | — | — |
 | N6 | Later, by use: a notch view, a separate FUEL status item, an update check against GitHub Releases, a macOS CI compile job | N3 | varies | — |
+| N7 | **atc window** (section 10): one native window hosting the atc web UI in a `WKWebView`; remembered frame; Dock icon and Cmd-Tab only while open; every click-through (MASTER light, lamps, "Open atc", notifications) opens the right tab inside it; the popover's unreachable state; links outside atc go to the browser | N3; N4's single link opener | — | M |
+| N7a | **In atc:** the web UI recognises the app window (a user-agent suffix) and leaves alert tones, voice callouts and browser notifications to the app there, since N4 plays them natively | N7 | atc auto | S |
+| N8 | **Design only:** which screens, if any, become native SwiftUI views (section 10.6). Nothing is built until the SUPERVISOR picks one after using N7 | N7, two weeks of use | — | — |
 
 ## 8. Risks
 
@@ -159,6 +162,9 @@ atc-app/
 | Two clients drift (plugin vs app) | Both read `/api/supervisor-summary`; the plugin is retired or frozen after the app matches it (D5) |
 | Reused code without its notices | `CLAUDE.md` requires the notice and source on every reused file; reviewers check new files for an SPDX line and, if reused, the source |
 | macOS UI churn (for example Liquid Glass on macOS 26) | Target macOS 14 APIs, with no private APIs (unlike Vorssaint's HID and MediaRemote use) |
+| The atc window becomes a second write client without anyone deciding it (N7) | D9 states it; the app adds no script bridge and no Swift write calls; navigation is locked to the atc origin (section 10.3) |
+| Alerts sound twice: the app (N4) and the web page in the atc window, or a browser tab as well | N7a mutes the web page's alert audio inside the app; a browser tab keeps its own switch (section 10.4) |
+| The window keeps a second full SSE stream (340 KB snapshots) open over the SSH forward when nobody looks | The web view is released when the window closes; reopening reloads it (section 10.2) |
 
 ## 9. Decisions (SUPERVISOR)
 
@@ -172,3 +178,114 @@ atc-app/
 | D6 | Minimum macOS | 14, unless the SUPERVISOR's Mac is newer and a newer API saves real work |
 | D7 | Voice in the app | Yes (N4): play the host-rendered WAV; the radio effect stays in the browser for now |
 | D8 | Repository and licence | **Decided 2026-09-29:** a separate public repository `atc-app`, GPL-3.0-or-later. atc stays MIT |
+| D9 | Writes through the atc window | The web UI in the atc window may write exactly as it does in a browser tab (localhost plus the Origin check). The app's Swift code still sends no writes, and it adds no JavaScript bridge. A token (N5) is still what native writes would need |
+| D10 | Where click-throughs open after N7 | The atc window by default; a Settings switch goes back to the browser; ⌥-click always opens the browser |
+| D11 | Order against N4 | **Decided 2026-09-30:** N4 ships first and opens the browser, but routes every click-through through one link opener; N7 swaps that opener for the window |
+
+## 10. The atc window (N7, N7a, N8)
+
+> Status (2026-09-30): proposed by the SUPERVISOR. Nothing is built. Today every click-through (the MASTER light, a lamp, "Open atc ↗") calls `NSWorkspace.shared.open` in `PopoverView.swift` and opens a browser tab. The goal is an atc window inside the app that feels like a real Mac app. Milestone "M5 · atc window".
+
+### 10.1 Current facts
+
+- Click-through URLs come from ATCCore. `ATCLink.url(base:link:)` builds `http://localhost:7700/#<tab>` from the alert's `link` (a screen hash). `Panel` does the same for pending rows (`#dispatch`) and NEEDS YOU chips (`#strips`). The app target only calls `NSWorkspace.shared.open(url)`.
+- The app is `LSUIElement` (set in `Tools/build-app.sh`). It has no Dock icon, no main menu and no windows except Settings.
+- The atc web UI routes by `location.hash`. Tabs listen for `hashchange`, and the web's own alert click sets `location.hash = a.link` (`web/src/alerts-runtime.ts`). Changing the hash on an open page switches tabs without a reload.
+- The web UI's alert runtime uses `localStorage`, `Notification`, `BroadcastChannel`, Web Locks and Web Audio. It treats a missing `Notification` as `unsupported`. Alert tone and voice are off by default and switched on per browser (`sound`, `voice.on`).
+- The atc server accepts SUPERVISOR writes from any page whose `Origin` host is `localhost`, `127.0.0.1` or `[::1]` (`server/origin.ts`). A page loaded from `http://localhost:7700` in a `WKWebView` sends that `Origin`, so its writes pass exactly as in a browser.
+- The Mac reaches atc only through the SSH local forward (`dev.atc.forward`). The popover already has an unreachable state: a grey light and "atc 연결 안 됨 — SSH 포워딩", with automatic reconnect.
+- WebKit ships with macOS and the Command Line Tools SDK, so a `WKWebView` needs no dependency and no Xcode. The app target stays free of SwiftUI macros (ATC-163).
+
+### 10.2 N7: the window
+
+**Shape**
+
+- **One window, not tabs or documents.** `AtcWindowController` owns a single `NSWindow` with a `WKWebView` filling it. AppKit only, with no SwiftUI (nothing here needs it, and it keeps the macro rule trivially).
+- **Frame remembered:** `setFrameAutosaveName("atc")`, with a minimum size of about 900×600 and a first-open size of about 1280×820, centred.
+- **The title** follows the page's `document.title` (KVO on `title`), falling back to "atc".
+- **Dock icon and Cmd-Tab only while the window is open.**
+  - Opening the window calls `NSApp.setActivationPolicy(.regular)` and then activates the app.
+  - Closing it calls `.accessory` again, so the app is back to a menu bar item.
+  - While the window is open, the Dock icon's badge shows the MASTER count (`dockTile.badgeLabel`, the same number as the title).
+  - `build-app.sh` gains an app icon (`.icns`, drawn by a script in the repo; no third-party art).
+- **A main menu**, needed once the app can be frontmost:
+  - app menu: About, Settings…, Quit;
+  - **Edit** (Undo, Redo, Cut, Copy, Paste, Select All). Without it, Cmd-C and Cmd-V don't work in the web UI's fields;
+  - View: Reload (Cmd-R), Actual Size, Zoom In, Zoom Out;
+  - Window: Close (Cmd-W), Minimize.
+- **Close releases the web view.** The window can be reopened at once, but the page (and its full `/api/events` stream, 340 KB per snapshot) is not kept alive in the background. Reopening loads the page again, in about a second over the forward.
+
+**Click-through**
+
+- N4 introduces one `LinkOpener` in the app target, and every click-through goes through it:
+  - the MASTER light;
+  - lamps, pending rows and NEEDS YOU chips;
+  - "Open atc ↗";
+  - notification clicks.
+
+  N7 replaces its body. No call site changes.
+- **The decision is a pure function in ATCCore**, `LinkRoute.decide(url:base:preference:modifier:)`. It returns one of:
+  - `.window(fragment)` for the atc origin (same scheme, host and port as the configured base);
+  - `.browser(url)` for anything else, or when the Settings switch says browser (D10) or ⌥ is held.
+
+  It is tested on Linux: the same origin, a different port, a different host, a missing fragment, and the preference and modifier paths.
+- **In the window:**
+  - if the page is loaded, set the hash on it without a reload, the same way the web's own alert click does;
+  - if not, load `base/#fragment`;
+  - then bring the window forward. The popover closes as it does today.
+
+**Navigation policy** (`WKNavigationDelegate`, `WKUIDelegate`)
+
+- Only the configured atc origin loads in the window.
+- Links to GitHub, Linear or anything else, `target=_blank` and `window.open` go to the default browser.
+- No `WKScriptMessageHandler` and no injected scripts: the page cannot call Swift, and Swift only sets `location.hash`.
+- The data store is the persistent default one, so the web UI's settings (theme, tabs, RADIO frequency) survive restarts. They are separate from the browser's.
+- Media may play without a click (`mediaTypesRequiringUserActionForPlayback = []`), so RADIO audio (R3) works in the window without the browser's audio lock (ATC-162).
+
+### 10.3 Access model (D9)
+
+The window is the atc web UI, not new app code. Its writes (approve, reject, ACK, settings) go from the page to atc with `Origin: http://localhost:7700`, exactly like a browser tab on the same Mac.
+
+- The access control stays what it is today: atc listens on the host's localhost, and the Mac reaches it only through the SSH forward.
+- The app's Swift code still sends only GET and SSE. `CLAUDE.md`'s "read only" rule is reworded in the N7 PR to say "the app's own code" and to point here.
+- N5 (a SUPERVISOR token) remains the design for any native write, such as a notification action button.
+
+### 10.4 N7a: sound and notifications in the window (atc side)
+
+With N4, the app plays the tone and the voice callout itself. If the web page inside the window also had `sound` or `voice.on` switched on, every WARNING would sound twice.
+
+- **N7:** the app sets `applicationNameForUserAgent` to `ANNUNCIATOR/<version>`.
+- **N7a** (atc, tier auto): when the web UI sees that suffix, it plays no alert tone or voice and raises no browser notification. Its settings panel says the app does this (for example "알림 소리와 음성은 ANNUNCIATOR가 냅니다").
+  - The bell list, the RADIO tab and RADIO audio are unchanged.
+  - Pure test: the host detection and the resulting alert prefs.
+- **A browser tab elsewhere** keeps its own switches. If it has sound on, the SUPERVISOR hears the browser and the app. The N4 settings text says so; the app does not try to coordinate with the browser.
+
+### 10.5 Reachability
+
+- **Before loading:**
+  - if the feed is already unreachable, the window shows a native overlay with the same text as the popover ("atc 연결 안 됨 — SSH 포워딩") and reconnect state, instead of WebKit's error page;
+  - a failed first navigation (`didFailProvisionalNavigation`) shows the same overlay.
+- **While open:** when the feed drops, the overlay covers the page. When it comes back, the overlay goes away and the page reloads once, because the page's own SSE has dropped too.
+- The overlay's wording and state come from the same ATCCore values as the popover, so the two never disagree.
+
+### 10.6 N8: native screens later (design only)
+
+The first step hosts the whole web UI and adds no native screens. Principle 1 (the server decides, the app shows) and the testing facts in section 1 argue against re-building atc tabs in SwiftUI:
+
+- every native screen is a second client that can drift from the web;
+- team sessions cannot see or compile the app target;
+- the macro rule makes SwiftUI state clumsier.
+
+A screen becomes native only if it passes at least one of these tests, and the SUPERVISOR picks it after two weeks of using N7:
+
+| Test | Example candidates |
+|---|---|
+| It needs the OS, which the web cannot do | a global hotkey to show the window; notification action buttons (needs N5 for writes); Touch ID to confirm an approve (N5) |
+| It must stay visible while the SUPERVISOR works elsewhere | a small always-on-top strip (MASTER light, pending decisions, the open RADIO call); the notch view already listed in N6 |
+| It is small, read-only and already modelled in ATCCore | the popover itself (already native) |
+
+Full tabs (FLEET, DISPATCH, RADIO, METRICS, DOCS) stay web. If a candidate is picked, it gets its own issue with the data it reads (an existing endpoint or `supervisor-summary`) and no new server state.
+
+### 10.7 Not built yet
+
+N7 (window), N7a (atc: sound handed to the app), N8 (native screen candidates, design only).
