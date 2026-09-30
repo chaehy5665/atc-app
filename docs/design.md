@@ -125,7 +125,11 @@ atc-app/
 **Connection**
 
 - The app talks to `http://localhost:7700` through the existing SSH forward.
-- It never opens a port and never needs the host's LAN address. It doesn't manage the SSH tunnel either: the launchd agent does that, and the app only reports "unreachable".
+- It never opens a port and never needs the host's LAN address. The SSH tunnel is a launchd agent (`dev.atc.forward`), not the app's process. Since ATC-204 the app can set that agent up, watch it and restart it, only when the SUPERVISOR puts an SSH host in Settings (empty = the app does nothing, as before):
+  - `ForwardSpec` (ATCCore) renders the one plist the app writes, in `~/Library/LaunchAgents` only; `ForwardHost` accepts `host` or `user@host` with `[A-Za-z0-9._-]`, never a leading `-`, no spaces, `=` or `:`, so ssh options cannot be injected; the plist has no keys, passwords, log paths or environment;
+  - `ForwardState` maps what the app saw (installed, plist equal to the rendered one, `launchctl print` state and last exit code, whether `localhost:7700` answers, who listens on 7700) to one popover line and one action (none, install, repair, restart); the app target only launches `launchctl` and `lsof` (no shell, no `sudo`) and writes the plist;
+  - if 7700 is held by something that is not the agent, the app says which process (PID, command) and does not fight it;
+  - these are local process launches on the Mac. They are not atc writes: the app still sends only GET and SSE to atc (N5 unchanged).
 
 ## 6. Testing and landing
 

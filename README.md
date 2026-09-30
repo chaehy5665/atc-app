@@ -17,7 +17,9 @@ It only reads from atc. Approvals and switches stay in the atc screen.
 
 ## How it connects
 
-atc listens on `127.0.0.1:7700` on the machine it runs on. From a Mac, keep an SSH local forward up (`ssh -N -L 7700:127.0.0.1:7700 <host>`, or the launchd agent in atc's `docs/guide/menubar.md`). The app talks to `http://localhost:7700` and never opens a port. Don't make atc listen on the LAN: atc has no login.
+atc listens on `127.0.0.1:7700` on the machine it runs on. From a Mac, keep an SSH local forward up (`ssh -N -L 7700:127.0.0.1:7700 <host>`, or the launchd agent in atc's `docs/guide/menubar.md`). The app talks to `http://localhost:7700` and never opens a port.
+
+The app can also set that forward up and watch it (ATC-204). Put the SSH destination (`host` or `user@host`; letters, digits, `.`, `_`, `-` only) in Settings → **SSH 호스트**. **설치/복구** writes `~/Library/LaunchAgents/dev.atc.forward.plist` (`/usr/bin/ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o BatchMode=yes -L 7700:127.0.0.1:7700 <host>`, `RunAtLoad`, `KeepAlive`) and loads it with `launchctl bootstrap gui/<uid>`; **다시 시작** runs `launchctl kickstart -k`. While atc is unreachable the popover names the forward's state and offers the matching button. If something else already listens on 7700 (a manual `ssh -L`, an editor's port forward) the app says which process (PID and command) and leaves it alone. The field is empty by default, and then the app does nothing. No `sudo`, no keys or passwords in the plist: `BatchMode=yes` makes a key with a passphrase fail fast, so add it to the keychain (`ssh-add --apple-use-keychain <key>`). The app only sends GET and SSE to atc; `launchctl` and `lsof` run locally on the Mac. Checklist: [docs/mac-checklist-forward.md](docs/mac-checklist-forward.md). Don't make atc listen on the LAN: atc has no login.
 
 ## Build and run (on the Mac)
 
