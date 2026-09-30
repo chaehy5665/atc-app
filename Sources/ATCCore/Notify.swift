@@ -98,6 +98,13 @@ public struct NotifyPlan: Equatable, Sendable {
     /// The key whose voice WAV to play after the tone: the first new key at the highest level. Nil when voice is off or quiet.
     public var voiceKey: String?
 
+    /// Public so the app target can build one (the Settings test alert); a memberwise init is internal.
+    public init(notifications: [AlertNotification] = [], tone: NotifyLevel? = nil, voiceKey: String? = nil) {
+        self.notifications = notifications
+        self.tone = tone
+        self.voiceKey = voiceKey
+    }
+
     public var isEmpty: Bool { notifications.isEmpty && tone == nil && voiceKey == nil }
 }
 

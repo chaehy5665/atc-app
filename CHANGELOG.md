@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- The app target builds again on the Mac: `NotifyPlan` has a public init, so Settings' test alert (N4, `AlertOutput.test(base:)`) can build one; the memberwise init was internal. A new `PublicAPITests` imports ATCCore without `@testable`, as the app does, so the Linux tests catch this kind of gap.
 - The MASTER light is drawn as a coloured, non-template circle (`systemRed` WARNING, `systemOrange` CAUTION) instead of a tinted template image, which the menu bar showed black; the light-off airplane stays a template (ATC-164).
 - The menu bar count is `warning + caution` then ` +advisory`, as in atc's SwiftBar `titleOf` and the number at the top of the atc screen (it used to add the CAUTION count to WARNING only when the light was amber, and left advisory out). Parts are separated by one space. The accessibility label reads `WARNING 2, CAUTION 23, advisory 13, 5h 16% · 7d 66%` (ATC-164).
 - The app target builds with Command Line Tools only (ATC-163): `main.swift` runs inside `MainActor.assumeIsolated`; Settings keeps its form state in an `ObservableObject` (`SettingsForm`) instead of `@State`. `Tools/test-linux.sh` fails if `Sources/Annunciator` uses `@State` or `#Preview`.
