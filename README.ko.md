@@ -30,7 +30,7 @@ open ~/Applications/Annunciator.app
 ```
 
 1. atc로 가는 SSH 포워딩을 켜 둡니다. `/api/supervisor-summary`(ATC-153)가 배포된 atc여야 합니다.
-2. `Tools/build-app.sh`를 실행합니다(Xcode 명령줄 도구 필요).
+2. `Tools/build-app.sh`를 실행합니다(Xcode 명령줄 도구 필요). 명령줄 도구만 있으면 앱은 SwiftUI 매크로(`@State`, `#Preview` 등)를 쓸 수 없습니다(Xcode 플러그인이 필요합니다). `ObservableObject`와 `@ObservedObject`는 됩니다. `Tools/test-linux.sh`가 이를 검사합니다.
 3. 앱을 엽니다. 회색 `✈ —`는 atc에 닿지 않는다는 뜻이고, 스스로 다시 연결합니다(1초부터 두 배씩, 최대 30초).
 4. 항목을 누르면 팝오버가 열립니다. **Settings…**에서 atc URL(기본 `http://localhost:7700`)과 로그인 시 실행을 정합니다.
 

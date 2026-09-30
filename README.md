@@ -30,7 +30,7 @@ open ~/Applications/Annunciator.app
 ```
 
 1. Keep the SSH forward to atc up (see above). The atc that serves `/api/supervisor-summary` (ATC-153) must be deployed.
-2. Run `Tools/build-app.sh` (needs the Xcode command line tools).
+2. Run `Tools/build-app.sh` (needs the Xcode command line tools). With Command Line Tools only, the app must not use SwiftUI macros (`@State`, `#Preview`, …), which need Xcode's plugin; `ObservableObject` and `@ObservedObject` are fine. `Tools/test-linux.sh` checks this.
 3. Open the app. `✈ —` in grey means atc is unreachable; it reconnects by itself (1 s backoff, doubling to 30 s).
 4. Click the item for the popover. **Settings…** sets the atc URL (default `http://localhost:7700`) and launch at login.
 

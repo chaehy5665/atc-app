@@ -2,31 +2,37 @@
 import ATCCore
 import SwiftUI
 
+/// Form state as an ObservableObject: SwiftUI state macros need Xcode's plugin (see Tools/test-linux.sh).
+@MainActor
+final class SettingsForm: ObservableObject {
+    @Published var urlText = ""
+    @Published var urlInvalid = false
+    @Published var launchAtLogin = false
+}
+
 struct SettingsView: View {
     @ObservedObject var model: AppModel
-    @State private var urlText = ""
-    @State private var urlInvalid = false
-    @State private var launchAtLogin = false
+    @ObservedObject var form: SettingsForm
 
     var body: some View {
         Form {
-            TextField("atc URL", text: $urlText)
+            TextField("atc URL", text: $form.urlText)
                 .onSubmit(apply)
-            if urlInvalid {
+            if form.urlInvalid {
                 Text("http:// 또는 https:// 주소가 아닙니다").font(.caption).foregroundStyle(.red)
             }
             HStack {
                 Button("Apply", action: apply)
                 Button("Default") {
-                    urlText = ATCSettings.defaultURLString
+                    form.urlText = ATCSettings.defaultURLString
                     apply()
                 }
             }
             Divider()
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, on in
+            Toggle("Launch at login", isOn: $form.launchAtLogin)
+                .onChange(of: form.launchAtLogin) { _, on in
                     model.setLaunchAtLogin(on)
-                    launchAtLogin = model.launchAtLogin
+                    form.launchAtLogin = model.launchAtLogin
                 }
             let note = model.launchAtLoginNote
             if !note.isEmpty { Text(note).font(.caption).foregroundStyle(.secondary) }
@@ -34,13 +40,13 @@ struct SettingsView: View {
         .padding(20)
         .frame(width: 400)
         .onAppear {
-            urlText = model.baseURL.absoluteString
-            launchAtLogin = model.launchAtLogin
+            form.urlText = model.baseURL.absoluteString
+            form.launchAtLogin = model.launchAtLogin
         }
     }
 
     private func apply() {
-        urlInvalid = !model.setURL(urlText)
-        if !urlInvalid { urlText = model.baseURL.absoluteString }
+        form.urlInvalid = !model.setURL(form.urlText)
+        if !form.urlInvalid { form.urlText = model.baseURL.absoluteString }
     }
 }
