@@ -21,6 +21,10 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
 ## 코드
 
 - Swift 5.9+, macOS 14+. SwiftPM만 쓴다(Xcode 프로젝트 없음). **외부 의존성은 두지 않는다.** 필요하면 먼저 사용자에게 묻는다.
+- **앱 타깃은 SwiftUI 매크로를 쓰지 않는다**(`@State`, `#Preview` 등). SUPERVISOR의 Mac은 Xcode 없이 명령줄 도구만 쓰는데, 매크로 플러그인(`SwiftUIMacros`)은 Xcode에만 있어 빌드가 깨진다(ATC-163).
+  - 화면 상태는 `ObservableObject` + `@Published`로 두고 `@ObservedObject`로 받는다.
+  - `main.swift`의 최상위 코드에서 `@MainActor` 타입을 만들 때는 `MainActor.assumeIsolated { … }` 안에서 한다.
+  - `Tools/test-linux.sh`의 `FORBIDDEN_MACROS`가 앱 소스(주석 포함)에서 금지 매크로를 찾으면 실패한다. 새로 막힌 매크로를 찾으면 거기에 더한다.
 - 공개되지 않은 시스템 API(private framework, MediaRemote, HID 이벤트 등)를 쓰지 않는다.
 - atc는 **읽기만** 한다: GET과 SSE(`/api/events`). 쓰기 요청을 보내지 않는다. 쓰기는 따로 인증 설계를 채택한 뒤다(design.md N5).
 - 서버가 정한 등급·문구·숫자를 그대로 보인다. atc의 규칙을 앱에서 다시 계산하지 않는다.
