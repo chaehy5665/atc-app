@@ -13,12 +13,17 @@ final class SettingsForm: ObservableObject {
     @Published var quietInvalid = false
     @Published var hostText = ""
     @Published var hostInvalid = false
+    @Published var githubClientText = ""
+    @Published var githubClientInvalid = false
+    @Published var linearClientText = ""
+    @Published var linearClientInvalid = false
 }
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var form: SettingsForm
     @ObservedObject var forward: ForwardMonitor
+    @ObservedObject var signIn: SignInModel
 
     var body: some View {
         Form {
@@ -54,6 +59,8 @@ struct SettingsView: View {
             if !forward.error.isEmpty { Text(forward.error).font(.caption).foregroundStyle(.red) }
             Text("~/Library/LaunchAgents/dev.atc.forward.plist 하나만 씁니다. 키·암호는 넣지 않습니다.")
                 .font(.caption).foregroundStyle(.secondary)
+            Divider()
+            accountsSection
             Divider()
             Picker("atc 열기", selection: $model.linkPreference) {
                 Text("앱 창").tag(LinkPreference.window)
@@ -109,10 +116,77 @@ struct SettingsView: View {
             form.urlText = model.baseURL.absoluteString
             form.hostText = forward.host
             forward.refresh(force: true)
+            signIn.refresh()
+            form.githubClientText = signIn.githubClientID
+            form.linearClientText = signIn.linearClientID
             form.launchAtLogin = model.launchAtLogin
             form.quietFrom = AppModel.clock(model.notifyPrefs.quiet.from)
             form.quietTo = AppModel.clock(model.notifyPrefs.quiet.to)
         }
+    }
+
+    @ViewBuilder
+    private var accountsSection: some View {
+        Text("GitHub · Linear").font(.headline)
+        Text("앱 자신의 토큰을 Keychain에만 보관합니다. 지금은 로그인만 되고 데이터는 가져오지 않습니다.")
+            .font(.caption).foregroundStyle(.secondary)
+        TextField("GitHub App client ID", text: $form.githubClientText).onSubmit(applyGitHubClient)
+        if form.githubClientInvalid {
+            Text("영문·숫자·. _ - 만 쓸 수 있습니다").font(.caption).foregroundStyle(.red)
+        }
+        HStack {
+            Button("Apply", action: applyGitHubClient)
+            switch signIn.githubPhase {
+            case .signedOut:
+                Button("GitHub 로그인") { signIn.signInGitHub() }
+            case .working:
+                Text("연결 중…").font(.caption)
+                Button("취소") { signIn.cancelGitHub() }
+            case .waitingForCode:
+                Button("취소") { signIn.cancelGitHub() }
+            case .signedIn:
+                Text("로그인됨").font(.caption)
+                Button("로그아웃") { signIn.signOut(.github) }
+                Button("GitHub에서 해지…") { signIn.openGitHubRevokePage() }
+            }
+        }
+        if case .waitingForCode(let userCode, let url) = signIn.githubPhase {
+            HStack {
+                Text(userCode).font(.system(.title3, design: .monospaced)).textSelection(.enabled)
+                Button("github.com/login/device 열기") { signIn.openVerification(url) }
+            }
+            Text("브라우저에서 이 코드를 입력하고 승인하세요.").font(.caption).foregroundStyle(.secondary)
+        }
+        if !signIn.githubMessage.isEmpty { Text(signIn.githubMessage).font(.caption) }
+        TextField("Linear OAuth client ID", text: $form.linearClientText).onSubmit(applyLinearClient)
+        if form.linearClientInvalid {
+            Text("영문·숫자·- _ 만 쓸 수 있습니다").font(.caption).foregroundStyle(.red)
+        }
+        HStack {
+            Button("Apply", action: applyLinearClient)
+            switch signIn.linearPhase {
+            case .signedOut:
+                Button("Linear 로그인") { signIn.signInLinear() }
+            case .working, .waitingForCode:
+                Text("브라우저 창에서 승인하세요…").font(.caption)
+                Button("취소") { signIn.cancelLinear() }
+            case .signedIn:
+                Text("로그인됨").font(.caption)
+                Button("로그아웃") { signIn.signOut(.linear) }
+            }
+        }
+        if !signIn.linearMessage.isEmpty { Text(signIn.linearMessage).font(.caption) }
+        Text("Linear redirect URI: \(LinearAuth.redirectURI)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+    }
+
+    private func applyGitHubClient() {
+        form.githubClientInvalid = !signIn.setGitHubClientID(form.githubClientText)
+        if !form.githubClientInvalid { form.githubClientText = signIn.githubClientID }
+    }
+
+    private func applyLinearClient() {
+        form.linearClientInvalid = !signIn.setLinearClientID(form.linearClientText)
+        if !form.linearClientInvalid { form.linearClientText = signIn.linearClientID }
     }
 
     private func prefBinding(_ path: WritableKeyPath<NotifyPrefs, Bool>) -> Binding<Bool> {

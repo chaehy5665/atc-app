@@ -31,6 +31,8 @@ final class AppModel: ObservableObject {
 
     /// The launchd SSH forward (ATC-204); does nothing while its host is empty.
     let forward = ForwardMonitor()
+    /// GitHub and Linear sign-in (ATC-246): tokens in the Keychain, no data fetched yet.
+    let signIn = SignInModel()
 
     /// The DUTY row (D6); nil hides it. Read with GET only, and only while the popover is open or atc comes back.
     @Published private(set) var duty: DutyLamp?
