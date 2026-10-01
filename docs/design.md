@@ -149,7 +149,7 @@ atc-app/
 | N3 | App v1: status item with the MASTER light, the popover with lamps, pending, RTS, FUEL and control sessions, click-through to atc tabs, unreachable state, launch at login, `build-app.sh` | N1, N2 | — | M |
 | N4 | Notifications and sound: new WARNING and CALL, the tone, the voice WAV (from `/api/voice/alert`), quiet hours taken from the server's alert settings, a notification click opening the tab | N3 | — | M |
 | R4 | **RADIO monitor** (ATC-173, atc `docs/radio.md` section 4): a Settings switch plays one RADIO frequency (TOWER by default) from atc's `radio` SSE topic and `/api/radio/<id>.wav` through the N4 audio path; alerts win, quiet hours apply, no replay after a reconnect. Popover line, not the title | N4; atc R1, R3 | — | M |
-| N5 | **Design only:** a SUPERVISOR token for write routes (ACK, approve, reject) that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted | D3 | — | — |
+| N5 | **Design only:** a SUPERVISOR token for write routes that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted. **Now drafted in [atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md) (ATC-250):** *decided* (SUPERVISOR, 2026-10-01): the app merges through atc's MERGE route (option C), never through the GitHub API. *Proposed, not adopted:* a pairing-code issue, a hashed `pr.merge`-scoped token sent as `Authorization: Bearer`, Touch ID before the confirm sheet, expiry and revoke (that document's section 8, D1 to D9). Other scopes (ACK, approve, reject) stay separate later decisions | D3 | — | — |
 | N6 | Later, by use: a notch view, a separate FUEL status item, an update check against GitHub Releases (the macOS CI job is built, ATC-205) | N3 | varies | — |
 | N7 | **atc window** (section 10): one native window hosting the atc web UI in a `WKWebView`; remembered frame; Dock icon and Cmd-Tab only while open; every click-through (MASTER light, lamps, "Open atc", notifications) opens the right tab inside it; the popover's unreachable state; links outside atc go to the browser | N3; N4's single link opener | — | M |
 | N7a | **In atc:** the web UI recognises the app window (a user-agent suffix) and leaves alert tones, voice callouts and browser notifications to the app there, since N4 plays them natively | N7 | atc auto | S |
@@ -178,13 +178,13 @@ atc-app/
 |---|---|---|
 | D1 | App name | ANNUNCIATOR (the cockpit's MASTER WARNING/CAUTION panel) |
 | D2 | Distribution | Build on the Mac with `Tools/build-app.sh`; no signed download for now |
-| D3 | Writes from the app | Not in v1. Revisit after a week of use with a separate auth design (N5). *(Section 11: stays for atc; GitHub and Linear writes are D12c and D12d.)* |
+| D3 | Writes from the app | Not in v1. Revisit after a week of use with a separate auth design (N5). *(Section 11: stays for atc; GitHub and Linear writes are D12c and D12d.)* **Proposed change, not adopted:** the [atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md) draft would turn this into "merge only, via the N5 token, once atc's T0 and T1 are built"; until the SUPERVISOR adopts it, D3 stands as written. |
 | D4 | macOS CI compile job | Built (ATC-205): `mac` and `linux` jobs in `.github/workflows/ci.yml`; no signing, no artifacts |
 | D5 | SwiftBar plugin after the app | Keep it as the documented fallback, frozen, reading the same summary |
 | D6 | Minimum macOS | 14, unless the SUPERVISOR's Mac is newer and a newer API saves real work |
 | D7 | Voice in the app | Yes (N4): play the host-rendered WAV; the radio effect stays in the browser for now |
 | D8 | Repository and licence | **Decided 2026-09-29:** a separate public repository `atc-app`, GPL-3.0-or-later. atc stays MIT. **Changed 2026-09-30:** both atc and atc-app are Apache-2.0 from their next versions (ATC-214, ATC-215); earlier versions stay GPL-3.0-or-later / MIT for whoever received them |
-| D9 | Writes through the atc window | The web UI in the atc window may write exactly as it does in a browser tab (localhost plus the Origin check). The app's Swift code still sends no writes, and it adds no JavaScript bridge. A token (N5) is still what native writes would need |
+| D9 | Writes through the atc window | The web UI in the atc window may write exactly as it does in a browser tab (localhost plus the Origin check). The app's Swift code still sends no writes, and it adds no JavaScript bridge. A token (N5, drafted in [atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md)) is still what native writes would need; the draft leaves D9 unchanged |
 | D10 | Where click-throughs open after N7 | The atc window by default; a Settings switch goes back to the browser; ⌥-click always opens the browser |
 | D11 | Order against N4 | **Decided 2026-09-30:** N4 ships first and opens the browser, but routes every click-through through one link opener; N7 swaps that opener for the window |
 | D12 | GitHub and Linear inside the app | **Decided 2026-09-30 (direction)** and **2026-10-01 (details, D12a to D12j in 11.9):** the app calls both APIs itself with its own tokens in the Keychain |
@@ -255,7 +255,7 @@ The window is the atc web UI, not new app code. Its writes (approve, reject, ACK
 
 - The access control stays what it is today: atc listens on the host's localhost, and the Mac reaches it only through the SSH forward.
 - The app's Swift code still sends only GET and SSE. `CLAUDE.md`'s "read only" rule is reworded in the N7 PR to say "the app's own code" and to point here.
-- N5 (a SUPERVISOR token) remains the design for any native write, such as a notification action button.
+- N5 (a SUPERVISOR token) remains the design for any native write. It is drafted in [atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md) and is proposed, not adopted. The draft allows only `pr.merge` and says a notification action button is never a merge path (its section 3.6).
 
 ### 10.4 N7a: sound and notifications in the window (atc side)
 
@@ -483,7 +483,7 @@ Each item is a check for the reviews of GL0, GL1 and GL2.
 | **D12** | **Decided 2026-09-30 (by the SUPERVISOR):** the app calls the GitHub and Linear APIs directly with its own tokens in the Keychain. This reverses the non-goal "no network use beyond the atc URL", Principle 2 and D3 for these two hosts only. atc stays read only (N5 unchanged) | — |
 | D12a | What is shown | **Decided 2026-10-01:** PRs and Linear issues by state: counts in the popover, two lists in a Work window. Notifications and the Linear inbox later (11.3) |
 | D12b | Direct or hybrid | **Decided 2026-10-01:** Direct, with swappable models (11.5) |
-| D12c | Merge from the app | **Decided 2026-10-01:** Never. LANDING only (11.2, 11.4) |
+| D12c | Merge from the app | **Decided 2026-10-01:** Never. LANDING only (11.2, 11.4). *Decided 2026-10-01 (SUPERVISOR, atc option C):* no merge through the GitHub API; if the app ever merges, it asks atc's MERGE route, which keeps the tier, CLEARED, hold and exact-head checks and the FLIGHT RECORDER line. The token for that is **proposed only** ([atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md), N5). The GitHub token stays without write permission |
 | D12d | Other writes | **Decided 2026-10-01, differs from the recommendation:** none in GL1. In GL2 a Linear comment **and a Linear state move** (Backlog, Todo, Canceled only), both off by default behind "Allow writes", with a separate `write` token (11.4, 11.5). No GitHub writes until there is a permission that can't merge |
 | D12e | GitHub auth | **Decided 2026-10-01:** A GitHub App with device flow, read-only permissions, installed on the AIRPORT repos only; not a PAT |
 | D12f | Linear auth | **Decided 2026-10-01:** OAuth 2 with PKCE, scope `read`; not a personal API key. GL2 adds a separate `write` token only while "Allow writes" is on (D12d, 11.5) |
