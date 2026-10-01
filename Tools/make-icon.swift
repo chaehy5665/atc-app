@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 // Draws the app icon as an .iconset folder: a dark panel, one lit amber lamp and the plane symbol.
 // Own drawing, no third-party art. Run on the Mac by build-app.sh:
 //   swift Tools/make-icon.swift <out.iconset> && iconutil -c icns <out.iconset>

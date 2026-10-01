@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 # CI for atc-app (design N6/D4). Job names `mac` and `linux` are stable so they
 # can be made required checks. No secrets, no signing, no artifacts.
 name: ci

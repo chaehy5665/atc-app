@@ -51,7 +51,7 @@ Related, in the atc repository: [docs/mac-app.md](https://github.com/chaehy5665/
   - per-feature `…Service` (I/O) and `…Support` (pure) files;
   - Developer ID signing and notarization in CI.
 - It also reads Claude Code usage from `~/.claude/projects` on the Mac. atc's sessions run on the host, so that doesn't cover them.
-- **Licences.** atc is MIT; this repository is GPL-3.0-or-later (D8), and the two talk only over HTTP. Vorssaint is GPL-3.0, so its code may be reused here, keeping its copyright notice and naming the source file and commit at the top of the file (`CLAUDE.md` "라이선스"). Prefer small, understood pieces over whole files.
+- **Licences.** atc and atc-app are both Apache-2.0 (D8, changed 2026-09-30), and the two talk only over HTTP. Vorssaint is GPL-3.0: it stays a design reference only and its code may not be copied here. Code from other projects is allowed only under Apache-2.0-compatible permissive licences (MIT, BSD, Apache-2.0, ISC), keeping its copyright notice and naming the source file and commit at the top of the file (`CLAUDE.md` "라이선스").
 
 ## 2. Goals and non-goals
 
@@ -78,7 +78,7 @@ Related, in the atc repository: [docs/mac-app.md](https://github.com/chaehy5665/
 2. **Read only until there is an access model.** Adding writes means adding real authentication for SUPERVISOR routes. That is a separate design with `Risk: Security`, not a side effect of the app. *(Section 11 (D12, decided 2026-10-01): this stays true for atc. GitHub and Linear are a different trust boundary with their own rules in 11.2 and 11.4: read only first, no merge ever, and only the writes listed in `WritePolicy`.)*
 3. **A pure core tested on Linux.** Everything that isn't AppKit or SwiftUI (decoding, SSE parsing, reconnect backoff, seen-key diff, formatting) lives in a Foundation-only target. Team sessions test it in the `swift` Docker image on the host.
 4. **Built on the Mac, not shipped as a binary.** v1 has no signed download. The SUPERVISOR builds from the checkout with one script, which avoids Developer ID, notarization and CI secrets.
-5. **The public repo stays clean.** No screenshots, and no real names or emails in code or bundle IDs. Reused GPL-3.0 code keeps its notices.
+5. **The public repo stays clean.** No screenshots, and no real names or emails in code or bundle IDs. Reused permissively licensed code keeps its notices; no GPL code is copied.
 6. **One client at a time.** atc's SwiftBar plugin stays as the fallback until the app matches it; then it is retired or kept documented as the fallback (D5).
 
 ## 4. Terms
@@ -183,7 +183,7 @@ atc-app/
 | D5 | SwiftBar plugin after the app | Keep it as the documented fallback, frozen, reading the same summary |
 | D6 | Minimum macOS | 14, unless the SUPERVISOR's Mac is newer and a newer API saves real work |
 | D7 | Voice in the app | Yes (N4): play the host-rendered WAV; the radio effect stays in the browser for now |
-| D8 | Repository and licence | **Decided 2026-09-29:** a separate public repository `atc-app`, GPL-3.0-or-later. atc stays MIT |
+| D8 | Repository and licence | **Decided 2026-09-29:** a separate public repository `atc-app`, GPL-3.0-or-later. atc stays MIT. **Changed 2026-09-30:** both atc and atc-app are Apache-2.0 from their next versions (ATC-214, ATC-215); earlier versions stay GPL-3.0-or-later / MIT for whoever received them |
 | D9 | Writes through the atc window | The web UI in the atc window may write exactly as it does in a browser tab (localhost plus the Origin check). The app's Swift code still sends no writes, and it adds no JavaScript bridge. A token (N5) is still what native writes would need |
 | D10 | Where click-throughs open after N7 | The atc window by default; a Settings switch goes back to the browser; ⌥-click always opens the browser |
 | D11 | Order against N4 | **Decided 2026-09-30:** N4 ships first and opens the browser, but routes every click-through through one link opener; N7 swaps that opener for the window |

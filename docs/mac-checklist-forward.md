@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (ATC-204, SSH forward)
 
 Run after the PR is merged and `Tools/build-app.sh` builds. The app target (AppKit, SwiftUI, Process) was written on Linux and **has not been built or run on a Mac**. Report in words, no screenshots.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import AppKit
 
 // Top-level code is nonisolated in the Command Line Tools toolchain; AppKit needs the main actor.

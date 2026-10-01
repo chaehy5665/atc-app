@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import AppKit
 
 /// The main menu. It only shows while the atc window is open (the app is then a regular app),

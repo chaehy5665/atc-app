@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // N7: the rules behind the atc window. The app target only hosts the WKWebView and calls these.

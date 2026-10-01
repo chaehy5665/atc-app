@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 
 /// Menu bar title text. Hello-world stand-in for the real title state.
 public enum StatusTitle {

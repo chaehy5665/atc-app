@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Build Annunciator.app on the Mac: release build, bundle, ad-hoc sign, install.
 # Safe to re-run: the bundle and the installed copy are replaced each time.
 set -euo pipefail

@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (D6, DUTY entry)
 
 Run after the D6 PR is merged (`Tools/build-app.sh`). The app target was written on Linux and **has not been built or run on a Mac**. Report in words, no screenshots.

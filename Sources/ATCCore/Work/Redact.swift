@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 /// Strips tokens and credentials from any string that may be logged or shown (ATC-246, design 11.7).

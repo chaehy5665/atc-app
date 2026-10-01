@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // ATC-204: the launchd SSH forward (`dev.atc.forward`). Pure rules only: the app target writes the
