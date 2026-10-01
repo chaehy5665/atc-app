@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // R4: the RADIO monitor. Which transmissions are heard, the queue and its cap, and the rule that

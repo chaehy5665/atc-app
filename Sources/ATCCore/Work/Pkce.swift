@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 /// SHA-256 (FIPS 180-4) in plain Swift: CryptoKit is not on Linux, and the core must build there.

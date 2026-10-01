@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (R4, RADIO monitor)
 
 Run after the R4 PR is merged and `Tools/build-app.sh` builds. The app target (AppKit, AVFoundation) was written on Linux and **has not been built or run on a Mac**. Report in words, no screenshots. The atc you point at must have RADIO R1 and R3 (`GET /api/radio`, `GET /api/radio/<id>.wav`, SSE topic `radio`).

@@ -71,4 +71,4 @@ CI (`.github/workflows/ci.yml`) runs on every PR and push to `main`: job `mac` b
 
 ## Licence
 
-GPL-3.0-or-later, see [LICENSE](LICENSE). atc itself is a separate program with its own licence; the app talks to it only over HTTP. Code reused from other GPL-3.0 projects keeps its copyright notice, and the source file names where it came from.
+Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Versions released before this change were licensed under GPL-3.0-or-later. atc itself is a separate program (also Apache-2.0); the app talks to it only over HTTP.

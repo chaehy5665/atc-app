@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (ATC-246, GL0: GitHub and Linear sign-in)
 
 Run after the PR is merged and `Tools/build-app.sh` builds. The app target (Keychain, `ASWebAuthenticationSession`, Settings) was written on Linux and **has not been built or run on a Mac**. Report in words, no screenshots, and never paste a token or a device code anywhere.

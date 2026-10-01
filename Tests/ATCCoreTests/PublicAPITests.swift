@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 import XCTest
 // Plain import, as the app target sees ATCCore: an internal init used by the app fails to compile here, not only on the Mac.

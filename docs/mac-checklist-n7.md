@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (N7)
 
 Run after the N7 PR is merged. The app target (AppKit, WebKit) was written on Linux and **has not been built or run on a Mac**. Report in words, no screenshots.

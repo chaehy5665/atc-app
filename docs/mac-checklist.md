@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (N0)
 
 The SUPERVISOR runs this on the Mac after the N0 PR is merged. N2 starts only after the results are reported. Nothing here was built or run on a Mac by the team that wrote it.

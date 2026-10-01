@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // D6: DUTY's state at a glance. Read only: `GET /api/duty/status`. The `duty` SSE topic carries chat

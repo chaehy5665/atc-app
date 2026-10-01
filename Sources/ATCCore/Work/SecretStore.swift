@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // ATC-246 (GL0): where a token rests. The app's Keychain implementation lives in the app target;

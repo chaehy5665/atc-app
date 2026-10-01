@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import Foundation
 
 // N4: which alerts notify, what sounds, and when it stays quiet. Pure; the app target only

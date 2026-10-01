@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Mac checklist (N3)
 
 The SUPERVISOR runs this on the Mac after the N3 PR is merged. The app target (AppKit, SwiftUI) was written on Linux and **has not been built or run on a Mac**. Expect a compile error or two; report the lines.

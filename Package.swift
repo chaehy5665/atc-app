@@ -1,5 +1,5 @@
 // swift-tools-version:5.9
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: Apache-2.0
 import PackageDescription
 
 var products: [Product] = [

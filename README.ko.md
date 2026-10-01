@@ -56,4 +56,4 @@ CI(`.github/workflows/ci.yml`)는 모든 PR과 `main` 푸시에서 돕니다. `m
 
 ## 라이선스
 
-GPL-3.0-or-later, [LICENSE](LICENSE). atc는 자기 라이선스를 가진 별개의 프로그램이고, 앱은 HTTP로만 이야기합니다. 다른 GPL-3.0 프로젝트에서 가져온 코드는 저작권 표시를 그대로 두고, 파일에 출처를 적습니다.
+Apache-2.0, [LICENSE](LICENSE)와 [NOTICE](NOTICE). 이 변경 전에 배포한 버전은 GPL-3.0-or-later였습니다. atc는 별개의 프로그램(역시 Apache-2.0)이고, 앱은 HTTP로만 이야기합니다.

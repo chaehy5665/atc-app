@@ -36,8 +36,8 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
 
 ## 라이선스
 
-- 이 저장소는 GPL-3.0-or-later다. 새 파일 머리에 `// SPDX-License-Identifier: GPL-3.0-or-later`를 둔다.
-- 다른 프로젝트의 코드를 가져올 때는 GPL-3.0과 맞는 라이선스(GPL-3.0, MIT, Apache-2.0, BSD 등)만 쓰고, 원래 저작권 표시를 그대로 두며 파일 머리에 출처(저장소·파일·커밋)를 적는다. 맞지 않거나 라이선스가 없는 코드는 가져오지 않는다.
+- 이 저장소는 Apache-2.0이다(이전 버전은 GPL-3.0-or-later). 새 파일 머리에 `// SPDX-License-Identifier: Apache-2.0`를 둔다.
+- 다른 프로젝트의 코드를 가져올 때는 Apache-2.0과 맞는 라이선스(MIT, BSD, Apache-2.0, ISC)만 쓰고, GPL·LGPL·AGPL 코드는 가져오지 않는다(Vorssaint 포함). 원래 저작권 표시를 그대로 두며 파일 머리에 출처(저장소·파일·커밋)를 적는다. 맞지 않거나 라이선스가 없는 코드는 가져오지 않는다.
 
 ## git과 PR
 

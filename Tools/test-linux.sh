@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: Apache-2.0
 # Build and test ATCCore in the pinned official swift image (Linux, Docker).
 # The package is mounted read-only; the build dir lives in .build/linux.
 set -euo pipefail
