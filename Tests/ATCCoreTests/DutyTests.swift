@@ -67,7 +67,8 @@ final class DutyTests: XCTestCase {
         let p = PanelContent(feed, base: URL(string: "http://localhost:7700")!)
         XCTAssertNil(p.notice)
         let without = PanelLayout.height(for: p, expansion: LampExpansion())
-        let with = PanelLayout.height(for: p, expansion: LampExpansion(), dutyLine: true)
-        XCTAssertEqual(with, min(PanelLayout.maxHeight, without + PanelLayout.dutyLine))
+        let status = StatusRows(duty: DutyLamp(dot: .amber, tooltip: "DUTY"), work: nil, radio: nil)
+        let with = PanelLayout.height(for: p, expansion: LampExpansion(), status: status)
+        XCTAssertEqual(with, min(PanelLayout.maxHeight, without + PanelLayout.statusLine))
     }
 }

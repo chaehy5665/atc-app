@@ -10,8 +10,6 @@ public struct MasterState: Equatable, Sendable {
     public var light: MasterLight
     /// Number lit at that level and above; 0 when off.
     public var count: Int
-    /// Menu bar title, "✈" or "✈ 3".
-    public var title: String
 
     /// The light comes from the server's `master`; nothing is re-derived from the alerts.
     public init(summary: SupervisorSummary) {
@@ -26,7 +24,6 @@ public struct MasterState: Equatable, Sendable {
             light = .off
             count = 0
         }
-        title = StatusTitle.text(litCount: count)
     }
 
     /// Nothing known yet, or atc unreachable.
@@ -35,7 +32,6 @@ public struct MasterState: Equatable, Sendable {
     public init(light: MasterLight, count: Int) {
         self.light = light
         self.count = count
-        title = StatusTitle.text(litCount: count)
     }
 }
 

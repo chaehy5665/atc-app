@@ -13,6 +13,10 @@ final class PopoverState: ObservableObject {
     /// Rows whose `next` line is pinned open with the chevron. Not remembered.
     @Published private(set) var openRows: Set<String> = []
 
+    /// Header rows (`InfoGroup` ids) and the status group that the user opened. Not remembered.
+    @Published private(set) var openGroups: Set<String> = []
+    @Published private(set) var statusOpened = false
+
     init() {
         expansion = LampExpansion(stored: UserDefaults.standard.stringArray(forKey: Self.expansionKey))
     }
@@ -27,4 +31,10 @@ final class PopoverState: ObservableObject {
     func toggleRow(_ id: String) {
         if openRows.contains(id) { openRows.remove(id) } else { openRows.insert(id) }
     }
+
+    func toggleGroup(_ id: String) {
+        if openGroups.contains(id) { openGroups.remove(id) } else { openGroups.insert(id) }
+    }
+
+    func toggleStatus() { statusOpened.toggle() }
 }

@@ -14,6 +14,10 @@ public struct WorkLine: Equatable, Sendable {
     public var text: String
     /// A notice (rate limit, sign-in, error) rather than the counts.
     public var isNotice: Bool
+    /// Open PRs, for the collapsed status line ("GitHub 3"); nil for a notice.
+    public var openCount: Int? = nil
+    /// At least one PR has failing CI: the one thing in this line that needs attention.
+    public var ciFailing = false
 }
 
 public struct WorkRow: Equatable, Sendable, Identifiable {
@@ -60,7 +64,7 @@ public enum WorkPanel {
         var parts = ["\(s.pulls.count) open"]
         if failing > 0 { parts.append("\(failing) CI failing") }
         if review > 0 { parts.append("\(review) review requested") }
-        return WorkLine(text: "GitHub: " + parts.joined(separator: " · "), isNotice: false)
+        return WorkLine(text: "GitHub: " + parts.joined(separator: " · "), isNotice: false, openCount: s.pulls.count, ciFailing: failing > 0)
     }
 
     // MARK: Window

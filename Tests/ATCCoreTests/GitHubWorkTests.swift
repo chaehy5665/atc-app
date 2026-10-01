@@ -657,7 +657,8 @@ final class WorkPanelTests: XCTestCase {
 
     func testPopoverLayoutGrowsByOneLine() {
         let panel = PanelContent(FeedState(), base: URL(string: "http://localhost:7700")!, now: t0)
-        XCTAssertGreaterThanOrEqual(PanelLayout.height(for: panel, expansion: LampExpansion(), workLine: true), PanelLayout.height(for: panel, expansion: LampExpansion()))
+        let status = StatusRows(duty: nil, work: WorkLine(text: "GitHub: 1 open", isNotice: false, openCount: 1), radio: nil)
+        XCTAssertGreaterThanOrEqual(PanelLayout.height(for: panel, expansion: LampExpansion(), status: status), PanelLayout.height(for: panel, expansion: LampExpansion()))
     }
 }
 

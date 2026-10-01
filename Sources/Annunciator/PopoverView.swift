@@ -20,7 +20,8 @@ struct PopoverView: View {
     }
 
     private func content(_ panel: PanelContent, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let status = StatusRows(duty: model.duty, work: work.line(now: now), radio: RadioHint(model.radio))
+        return VStack(alignment: .leading, spacing: 0) {
             if let notice = panel.notice {
                 Text(notice)
                     .foregroundStyle(.secondary)
@@ -29,115 +30,139 @@ struct PopoverView: View {
                 if panel.notice == PanelContent.unreachableNotice { ForwardLineView(forward: model.forward) }
                 Spacer(minLength: 0)
             } else {
-                strip(panel, now: now)
+                summaryHeader(panel)
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         lamps(panel)
+                        if !panel.groups.isEmpty {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(panel.groups) { groupRow($0) }
+                            }
+                        }
                     }
                     .padding(12)
                 }
+                statusGroup(status)
+                if let fuel = panel.fuelBar { fuelRow(fuel) }
             }
             Divider()
             footer
         }
         .frame(
             width: PanelLayout.width,
-            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on, dutyLine: model.duty != nil, workLine: work.line(now: now) != nil))
+            height: PanelLayout.height(
+                for: panel, expansion: state.expansion, status: status,
+                openGroups: state.openGroups, statusOpened: state.statusOpened))
     }
 
-    // MARK: Fixed strip
+    // MARK: Header
 
-    @ViewBuilder private func strip(_ panel: PanelContent, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    /// Tiles while something is lit; otherwise one calm line.
+    @ViewBuilder private func summaryHeader(_ panel: PanelContent) -> some View {
+        if panel.allNormal {
+            Text(PanelContent.allNormalText)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+        } else {
             HStack(spacing: 8) {
-                ForEach(panel.tiles) { tile in
-                    tileView(tile)
-                }
+                ForEach(panel.tiles) { tileView($0) }
             }
-            if !panel.pending.isEmpty || !panel.needsYouChips.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(panel.pending) { row in
-                            Button { LinkOpener.open(row.url) } label: {
-                                Text("\(row.title) \(row.count)").font(.caption.monospaced())
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Capsule().fill(Color.primary.opacity(0.10)))
-                            }
-                            .buttonStyle(.plain)
-                            .help("\(row.title) — atc에서 열기")
-                        }
-                        if !panel.needsYouChips.isEmpty {
-                            // Own style (accent colour), so it is never mistaken for a CAUTION.
-                            Text("NEEDS YOU").font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
-                            ForEach(panel.needsYouChips) { chip in
-                                Button { LinkOpener.open(chip.url) } label: {
-                                    Text(chip.name).font(.caption.monospaced())
-                                        .padding(.horizontal, 8).padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.accentColor.opacity(0.18)))
-                                        .overlay(Capsule().stroke(Color.accentColor, lineWidth: 1))
-                                }
-                                .buttonStyle(.plain)
-                                .help("\(chip.name) — atc에서 열기")
-                            }
-                        }
+            .padding(12)
+        }
+    }
+
+    // MARK: Header rows (PENDING, NEEDS YOU, RTS, working)
+
+    private func groupRow(_ group: InfoGroup) -> some View {
+        let open = state.openGroups.contains(group.id)
+        let tint: Color = group.isNeedsYou ? .accentColor : .secondary
+        return VStack(alignment: .leading, spacing: 2) {
+            if group.isExpandable {
+                Button { state.toggleGroup(group.id) } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: open ? "chevron.down" : "chevron.right").font(.caption2)
+                        Text(group.header).font(.caption.monospaced().weight(group.isNeedsYou ? .bold : .regular)).lineLimit(1)
+                        Spacer(minLength: 0)
                     }
+                    .foregroundStyle(tint)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityHint(open ? "접기" : "펼치기")
+            } else {
+                Text(group.header).font(.caption.monospaced()).foregroundStyle(tint).lineLimit(1)
+                    .help(group.header)
+                    .padding(.leading, 14)
             }
-            ForEach(panel.fuel) { w in
-                HStack(spacing: 8) {
-                    Text(w.name).font(.caption.monospaced()).frame(width: 34, alignment: .leading)
-                    fuelBar(w.fraction)
-                    Text(w.detail).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        .frame(width: 120, alignment: .trailing)
+            ForEach(group.visibleItems(expanded: open)) { item in
+                Button { LinkOpener.open(item.url) } label: {
+                    Text(item.text).font(.caption.monospaced()).lineLimit(1)
+                        .foregroundStyle(tint)
+                        .padding(.leading, 22)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
-            }
-            Text(panel.statusLine).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                .help(panel.statusLine)
-            if let lamp = model.duty { dutyRow(lamp) }
-            if let line = work.line(now: now) { workRow(line) }
-            if let hint = RadioHint(model.radio) {
-                HStack(spacing: 6) {
-                    Text(hint.title).font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
-                    Text(hint.detail).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
-                        .help(hint.detail)
-                }
-                .accessibilityElement(children: .combine)
+                .buttonStyle(.plain)
+                .help("\(item.text) — atc에서 열기")
             }
         }
-        .padding(12)
+        .padding(.horizontal, 6).padding(.vertical, 1)
     }
 
-    /// DUTY and its state dot; a click opens the atc window at `#duty`. No sound, no notification.
-    private func dutyRow(_ lamp: DutyLamp) -> some View {
-        Button { LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + DutyLamp.fragment)) } label: {
-            HStack(spacing: 6) {
-                Text("DUTY").font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
-                Circle().fill(dutyColor(lamp.dot)).frame(width: 8, height: 8)
-                Spacer(minLength: 0)
-                Text("↗").font(.caption).foregroundStyle(.secondary)
+    // MARK: Status row group (DUTY, GitHub, RADIO)
+
+    @ViewBuilder private func statusGroup(_ status: StatusRows) -> some View {
+        if !status.rows.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                if status.isFolded {
+                    Button { state.toggleStatus() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: state.statusOpened ? "chevron.down" : "chevron.right").font(.caption2)
+                            Text(status.summary).font(.caption.monospaced()).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(state.statusOpened ? "접기" : "펼치기")
+                }
+                if !status.isFolded || state.statusOpened {
+                    ForEach(status.rows) { statusRow($0) }
+                }
             }
-            .contentShape(Rectangle())
+            .padding(.horizontal, 12).padding(.vertical, 6)
         }
-        .buttonStyle(.plain)
-        .help(lamp.tooltip)
-        .accessibilityLabel(lamp.tooltip + ", " + lamp.dot.rawValue)
-        .accessibilityHint("atc에서 엽니다")
     }
 
-    /// "GitHub: 3 open · 1 CI failing" (raw GitHub counts, never the MASTER light); a click opens the Work window.
-    private func workRow(_ line: WorkLine) -> some View {
-        Button(action: openWork) {
-            HStack(spacing: 6) {
-                Text(line.text).font(.caption.monospaced()).foregroundStyle(line.isNotice ? Color.orange : Color.secondary).lineLimit(1)
-                Spacer(minLength: 0)
-                Text("↗").font(.caption).foregroundStyle(.secondary)
-            }
-            .contentShape(Rectangle())
+    /// One line. DUTY and GitHub click through (atc window `#duty`, Work window); RADIO is text only. No sound, no notification.
+    @ViewBuilder private func statusRow(_ row: StatusRow) -> some View {
+        let line = HStack(spacing: 6) {
+            if let dot = row.dot { Circle().fill(dutyColor(dot)).frame(width: 8, height: 8) }
+            Text(row.text).font(.caption.monospaced()).lineLimit(1)
+                .foregroundStyle(row.attention || row.isNotice ? Color.orange : Color.secondary)
+            Spacer(minLength: 0)
+            if row.kind != .radio { Text("↗").font(.caption).foregroundStyle(.secondary) }
         }
-        .buttonStyle(.plain)
-        .help(line.text)
-        .accessibilityHint("Work 창을 엽니다")
+        .contentShape(Rectangle())
+        switch row.kind {
+        case .duty:
+            Button { LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + DutyLamp.fragment)) } label: { line }
+                .buttonStyle(.plain)
+                .help(row.text)
+                .accessibilityLabel(row.text + (row.dot.map { ", " + $0.rawValue } ?? ""))
+                .accessibilityHint("atc에서 엽니다")
+        case .work:
+            Button(action: openWork) { line }
+                .buttonStyle(.plain)
+                .help(row.text)
+                .accessibilityHint("Work 창을 엽니다")
+        case .radio:
+            line.help(row.text).accessibilityElement(children: .combine)
+        }
     }
 
     private func dutyColor(_ dot: DutyDot) -> Color {
@@ -164,6 +189,18 @@ struct PopoverView: View {
         .accessibilityLabel("\(tile.label) \(tile.count)")
     }
 
+    /// One thin bar with the number, at the bottom.
+    private func fuelRow(_ w: FuelRow) -> some View {
+        HStack(spacing: 8) {
+            Text(w.name).font(.caption.monospaced()).foregroundStyle(.secondary).frame(width: 34, alignment: .leading)
+            fuelBar(w.fraction)
+            Text(w.detail).font(.caption.monospaced()).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("FUEL \(w.name) \(w.used)")
+    }
+
     private func fuelBar(_ fraction: Double?) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
@@ -171,7 +208,7 @@ struct PopoverView: View {
                 Capsule().fill(Color.accentColor).frame(width: geo.size.width * (fraction ?? 0))
             }
         }
-        .frame(height: 6)
+        .frame(height: 4)
     }
 
     // MARK: Lamps
@@ -229,7 +266,7 @@ struct PopoverView: View {
                         if let place = row.place {
                             Text(place).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        Text(row.text).font(.callout).lineLimit(2).multilineTextAlignment(.leading)
+                        Text(row.text).font(.callout).lineLimit(1).multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                         if hovered { Text("↗").foregroundStyle(.secondary) }
                         if let age = row.age { Text(age).font(.caption.monospaced()).foregroundStyle(.secondary) }
@@ -274,34 +311,32 @@ struct PopoverView: View {
 
     // MARK: Footer
 
+    /// Open atc and the gear only. Refresh (⌘R) and Quit (⌘Q) live in the title's right-click menu;
+    /// their shortcuts also work here while the popover is open, through the hidden buttons below.
     private var footer: some View {
         HStack(spacing: 10) {
             Button { LinkOpener.open(ATCLink.url(base: model.baseURL, link: nil)) } label: { Text("Open atc ↗") }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
             Spacer()
-            Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                .buttonStyle(.borderless)
-                .keyboardShortcut("r", modifiers: .command)
-                .help("Refresh (⌘R)")
-                .accessibilityLabel("Refresh")
             Button { openSettings() } label: { Image(systemName: "gearshape") }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(",", modifiers: .command)
                 .help("Settings (⌘,)")
                 .accessibilityLabel("Settings")
-            Menu {
-                Button("Quit ANNUNCIATOR") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q", modifiers: .command)
-            } label: {
-                Image(systemName: "ellipsis")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("More")
-            .accessibilityLabel("More")
         }
         .padding(10)
+        .background(shortcuts)
+    }
+
+    private var shortcuts: some View {
+        ZStack {
+            Button("Refresh") { model.refresh() }.keyboardShortcut("r", modifiers: .command)
+            Button("Quit ANNUNCIATOR") { NSApp.terminate(nil) }.keyboardShortcut("q", modifiers: .command)
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
     }
 
     // MARK: Helpers

@@ -188,6 +188,7 @@ atc-app/
 | D10 | Where click-throughs open after N7 | The atc window by default; a Settings switch goes back to the browser; ⌥-click always opens the browser |
 | D11 | Order against N4 | **Decided 2026-09-30:** N4 ships first and opens the browser, but routes every click-through through one link opener; N7 swaps that opener for the window |
 | D12 | GitHub and Linear inside the app | **Decided 2026-09-30 (direction)** and **2026-10-01 (details, D12a to D12j in 11.9):** the app calls both APIs itself with its own tokens in the Keychain |
+| D13 | Menu bar title and popover (ATC-222) | **Accepted by the SUPERVISOR 2026-10-01:** a state icon (idle aircraft; CAUTION amber dot and count; WARNING red triangle and count; NEEDS YOU blue dot; unreachable slashed grey), FUEL in the title only by a Settings switch, right-click menu for Settings, Refresh and Quit, and a calm popover (10.9). Display only |
 
 ## 10. The atc window (N7, N7a, N8)
 
@@ -308,8 +309,39 @@ DUTY (chat with atc, decide in the same window) lives in the atc web UI drawer a
   - hidden while `enabled` is false, before the first read, or when the read fails (older atc without the endpoint, unreachable);
   - dot: `idle` green, `answering` amber, `down` or `blocked` red, and `blocked: true` in the body is red whatever `state` says; an unknown `state` shows a grey dot (PILOT'S DISCRETION);
   - tooltip `DUTY · <account> · context <k>/<cap>k` (thousands, rounded); parts atc did not send are left out.
-- The popover height grows by one row while DUTY shows (`PanelLayout`, `dutyLine`).
-- Not done: a DUTY badge on the menu bar title (the title stays the MASTER light); atc's `docs/duty.md` is linked to this section by ENGINEERING after the merge.
+- Since ATC-222 the DUTY row is one line of the status row group (10.9); the popover height follows `PanelLayout`.
+- Not done: a DUTY badge on the menu bar title; atc's `docs/duty.md` is linked to this section by ENGINEERING after the merge.
+
+### 10.9 The menu bar title and the calm popover (ATC-222, D13)
+
+The SUPERVISOR did not like a coloured dot with a count above a popover of tiles, chips, bars and rows. Display only: levels, counts and texts are the server's (principle 1), nothing is sent to atc, nothing is added to what atc serves. The rules are in ATCCore (`MenuTitle`, `PanelContent.groups`, `StatusRows`, `PanelLayout`) and tested on Linux; the app target only draws them.
+
+**Title item.** One state at a time, from the server's `master`, never from the counts.
+
+| State | Looks like | Number |
+|---|---|---|
+| Idle (no WARNING, no CAUTION; ADVISORY alone is idle) | small aircraft, template image (follows light and dark) | none |
+| CAUTION | aircraft, **amber dot** | CAUTION plus WARNING, as today |
+| WARNING | heavier aircraft, **red triangle** badge | WARNING |
+| Unreachable, connecting, unknown summary version | grey aircraft with a slash | none, stale numbers dropped |
+
+- NEEDS YOU is a separate small **blue dot** after the rest (the popover's accent colour; never read as CAUTION). It shows whenever the summary lists a name.
+- The badge shapes differ (dot, triangle, slash), so no state depends on colour alone. The accessibility label and tooltip are the spoken form, for example `CAUTION 21, advisory 9, needs you 1, 5h 6% · 7d 65%`.
+- FUEL in the title (`5h 6% · 7d 65%`) is a Settings switch, **off by default** (width, the notch).
+- Left click: the popover. Right click (or control-click): a menu with Settings…, Refresh (⌘R) and Quit (⌘Q). `ATCCore/StatusTitle.swift` (`✈ N`) is removed.
+
+**Popover, in this order.**
+
+1. **All normal.** With no WARNING and no CAUTION the three tiles give way to one line, `✓ all normal`. atc sends no text for this state, so the words are the app's (PILOT'S DISCRETION); with a WARNING or CAUTION the tiles stay.
+2. **LAMP list**, the main content: letter chip (W/C/A, so it is not colour alone), place (AIRCRAFT/FLIGHT), a one-line reason (the full server text is the tooltip), age. Folding is unchanged (WARNING open, CAUTION first 5, ADVISORY behind its header).
+3. **Header rows**, collapsed, each shown only when it has something: `PENDING n` (opens to DISPATCH, HUMAN CHECK, TOOL APPROVAL, SCHEDULE rows), `NEEDS YOU n` (opens to the names, accent colour), the RTS line, and `AIRCRAFT n · CONTROL n`. Only rows with items open; the last two are text. Opening is not remembered.
+4. **Status row group**: DUTY, GitHub and RADIO, one line each, same click targets as before (atc window at `#duty`, the Work window; RADIO is text). While none needs attention they fold into one line, `DUTY · GitHub 3 · RADIO TOWER`, with a chevron that opens the rows. They open by themselves when **DUTY is not idle** (answering, down, blocked, unknown state), **CI is failing** on a PR (`WorkLine.ciFailing`), or **RADIO is on but disconnected**. A GitHub notice (rate limit, signed out) does not open the group. Linear (GL1b) joins the group as a fourth line, with its count in the folded summary, so it needs no new strip row.
+5. **FUEL** is one thin bar with its number at the bottom: the window closest to its limit (`7d 65% · 10:00Z`), not both windows (PILOT'S DISCRETION; atc's own numbers, only the choice of bar is the app's).
+6. **Footer:** `Open atc ↗` and the Settings gear. Refresh and Quit moved to the title's right-click menu; ⌘R and ⌘Q still work while the popover is open (hidden buttons), ⌘, stays on the gear.
+
+The FORWARD line is unchanged: it shows only while atc is unreachable and is then the main content. `PanelLayout.height` counts the lines above (240 to 640 pt), so the popover fits its content.
+
+Not done: a notch view (N6), native writes (N5), any change to the atc window (N7).
 
 ## 11. GitHub and Linear in the app (ATC-240, D12)
 

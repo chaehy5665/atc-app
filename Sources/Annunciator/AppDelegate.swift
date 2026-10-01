@@ -22,7 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.target = self
-            button.action = #selector(togglePopover)
+            button.action = #selector(statusItemClicked)
+            // Left click opens the popover, right click (or control-click) the small menu.
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.imagePosition = .imageLeading
         }
 
@@ -49,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             self?.render()
             if let self { self.atcWindow.feedChanged(self.model.feed) }
         }
+        model.onTitleChange = { [weak self] in self?.render() }
         render()
         model.start()
         keepAwakeForAlerts()
@@ -77,38 +80,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         let title = model.title
         button.setAccessibilityLabel(title.accessibility)
-        switch title.symbol {
-        case .unreachable:
-            button.image = nil
-            button.attributedTitle = NSAttributedString(
-                string: "✈ —", attributes: [.foregroundColor: NSColor.secondaryLabelColor])
-        case .light(let light):
-            button.image = lightImage(light)
-            button.contentTintColor = nil
-            button.attributedTitle = NSAttributedString(string: title.text.isEmpty ? "" : " " + title.text)
-        }
+        button.toolTip = title.accessibility
+        button.image = TitleImages.aircraft(title.glyph)
+        button.contentTintColor = nil
+        button.attributedTitle = TitleImages.attributedTitle(title)
     }
 
-    /// Lit: a coloured circle that is not a template, so the menu bar keeps its colour.
-    /// Off: the plain airplane as a template, so it follows the light or dark menu bar.
-    private func lightImage(_ light: MasterLight) -> NSImage? {
-        let color: NSColor
-        switch light {
-        case .warning: color = .systemRed
-        case .caution: color = .systemOrange
-        case .off:
-            let plane = NSImage(systemSymbolName: "airplane", accessibilityDescription: nil)
-            plane?.isTemplate = true
-            return plane
-        }
-        let config = NSImage.SymbolConfiguration(paletteColors: [color])
-        let circle = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
-        circle?.isTemplate = false
-        return circle
+    @objc private func statusItemClicked() {
+        let event = NSApp.currentEvent
+        let secondary = event?.type == .rightMouseUp || (event?.modifierFlags.contains(.control) ?? false)
+        if secondary { showMenu() } else { togglePopover() }
     }
 
-    @objc private func togglePopover() {
+    /// Settings…, Refresh and Quit; the popover's footer keeps only Open atc and the gear.
+    private func showMenu() {
+        guard let button = statusItem.button else { return }
+        popover.performClose(nil)
+        let menu = NSMenu()
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        let refresh = NSMenuItem(title: "Refresh", action: #selector(refreshNow), keyEquivalent: "r")
+        refresh.target = self
+        menu.addItem(refresh)
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit ANNUNCIATOR", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        // An item's menu shows once for this click; clearing it keeps the left click on the popover.
+        statusItem.menu = menu
+        button.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    @objc private func refreshNow() { model.refresh() }
+
+    private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(nil)
