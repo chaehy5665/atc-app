@@ -123,3 +123,82 @@ public enum WorkPanel {
         return f.string(from: date)
     }
 }
+
+// MARK: - Linear (ATC-248, GL1b)
+
+/// Which list the Work window shows.
+public enum WorkSource: String, Sendable, CaseIterable {
+    case github
+    case linear
+}
+
+public struct LinearRow: Equatable, Sendable, Identifiable {
+    public var id: String
+    public var title: String
+    /// `ISS-12 · 3h`
+    public var detail: String
+    /// Linear's own state name, as the team wrote it.
+    public var stateName: String
+    public var stateType: LinearStateType?
+    /// The issue page; nil if it is not a link the app may open (`LinkRoute.workLink`).
+    public var url: URL?
+    /// The atc FLIGHT drawer for this key (`flight/ISS-12`); nil when the key has an unexpected shape.
+    public var atcFragment: String?
+}
+
+extension WorkPanel {
+    /// "Decide in atc ↗" on an issue row opens atc's FLIGHT drawer: the atc web UI answers `#flight/<KEY>`.
+    public static func flightFragment(_ identifier: String) -> String? {
+        LinearIssue.validIdentifier(identifier) ? "flight/" + identifier : nil
+    }
+
+    /// nil hides the line: signed out of Linear. `teams` is the number of configured team keys.
+    /// Counts by state type, Linear's own words: `Linear: 4 Todo · 2 Started`.
+    public static func linearLine(_ s: LinearSnapshot, signedIn: Bool, teams: Int, now: Date, timeZone: TimeZone = .current) -> WorkLine? {
+        guard signedIn else { return nil }
+        if teams == 0 { return notice("Linear: 팀 키를 Settings에 추가하세요") }
+        switch s.status {
+        case .rateLimited(let until): return notice("Linear rate limited, retrying at \(clock(until, timeZone))")
+        case .capReached(let until): return notice("Linear: 시간당 요청 한도에 도달, \(clock(until, timeZone))에 다시 시작")
+        case .needsSignIn: return notice("Linear: 다시 로그인이 필요합니다")
+        case .error(let message): return s.fetchedAt == nil ? notice("Linear: 읽지 못함 (\(message))") : linearCounts(s)
+        case .idle: return s.fetchedAt == nil ? notice("Linear: 읽는 중…") : linearCounts(s)
+        case .ok: return linearCounts(s)
+        }
+    }
+
+    private static func linearCounts(_ s: LinearSnapshot) -> WorkLine {
+        var parts: [String] = []
+        for type in LinearRequests.listedTypes {
+            let n = s.issues.filter { $0.state.type == type }.count
+            if n > 0 { parts.append("\(n) \(type.label)") }
+        }
+        let plus = s.truncated ? "+" : ""
+        let text = parts.isEmpty ? "Linear: 0 open" : "Linear: " + parts.joined(separator: " · ") + plus
+        return WorkLine(text: text, isNotice: false, openCount: s.issues.count)
+    }
+
+    public static func linearRows(_ s: LinearSnapshot, now: Date) -> [LinearRow] {
+        s.issues.map { issue in
+            LinearRow(
+                id: issue.identifier, title: issue.title,
+                detail: "\(issue.identifier) · " + AgeFormat.short(since: issue.updatedAt, now: now),
+                stateName: issue.state.name, stateType: issue.state.type,
+                url: LinkRoute.workLink(issue.url), atcFragment: flightFragment(issue.identifier))
+        }
+    }
+
+    public static func linearHeader(_ s: LinearSnapshot, now: Date, timeZone: TimeZone = .current) -> String {
+        switch s.status {
+        case .rateLimited(let until): return "Linear rate limited, retrying at \(clock(until, timeZone))"
+        case .capReached(let until): return "시간당 요청 한도에 도달, \(clock(until, timeZone))에 다시 시작"
+        case .needsSignIn: return "다시 로그인이 필요합니다 (Settings)"
+        case .error(let message): return "읽지 못함: \(message)"
+        case .idle, .ok:
+            guard let at = s.fetchedAt else { return "읽는 중…" }
+            var text = "\(s.issues.count) open · \(AgeFormat.short(since: at, now: now)) 전 갱신"
+            if s.truncated { text += " · 처음 \(LinearRequests.pageSize * LinearRequests.maxPages)개만" }
+            return text
+        }
+    }
+}

@@ -24,7 +24,7 @@ public struct InfoGroup: Equatable, Sendable, Identifiable {
 }
 
 public struct StatusRow: Equatable, Sendable, Identifiable {
-    public enum Kind: String, Sendable { case duty, work, radio }
+    public enum Kind: String, Sendable { case duty, work, linear, radio }
     public var kind: Kind
     public var text: String
     /// A short word for the collapsed line: "DUTY", "GitHub 3", "RADIO TOWER".
@@ -44,7 +44,7 @@ public struct StatusRows: Equatable, Sendable {
 
     public static let none = StatusRows(duty: nil, work: nil, radio: nil)
 
-    public init(duty: DutyLamp?, work: WorkLine?, radio: RadioHint?) {
+    public init(duty: DutyLamp?, work: WorkLine?, linear: WorkLine? = nil, radio: RadioHint?) {
         var rows: [StatusRow] = []
         if let duty {
             rows.append(StatusRow(kind: .duty, text: duty.tooltip, part: "DUTY", attention: duty.dot != .green, dot: duty.dot, isNotice: false))
@@ -52,6 +52,10 @@ public struct StatusRows: Equatable, Sendable {
         if let work {
             let part = work.openCount.map { "GitHub \($0)" } ?? "GitHub"
             rows.append(StatusRow(kind: .work, text: work.text, part: part, attention: work.ciFailing, dot: nil, isNotice: work.isNotice))
+        }
+        if let linear {
+            let part = linear.openCount.map { "Linear \($0)" } ?? "Linear"
+            rows.append(StatusRow(kind: .linear, text: linear.text, part: part, attention: false, dot: nil, isNotice: linear.isNotice))
         }
         if let radio {
             rows.append(StatusRow(

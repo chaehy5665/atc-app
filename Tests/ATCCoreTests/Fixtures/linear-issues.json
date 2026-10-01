@@ -1,0 +1,64 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "identifier": "ISS-12",
+          "title": "Fix the thing that is broken",
+          "url": "https://linear.app/ws/issue/ISS-12/fix-the-thing",
+          "updatedAt": "2026-10-01T05:12:33.123Z",
+          "state": { "name": "In Progress", "type": "started" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "identifier": "ISS-9",
+          "title": "Plan the next step",
+          "url": "https://linear.app/ws/issue/ISS-9/plan-the-next-step",
+          "updatedAt": "2026-10-01T03:00:00.000Z",
+          "state": { "name": "Todo", "type": "unstarted" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "identifier": "ISS-7",
+          "title": "Review wording",
+          "url": "https://linear.app/ws/issue/ISS-7/review-wording",
+          "updatedAt": "2026-09-30T23:30:00Z",
+          "state": { "name": "In Review", "type": "started" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "identifier": "ISS-5",
+          "title": "Odd new state type",
+          "url": "https://linear.app/ws/issue/ISS-5/odd",
+          "updatedAt": "2026-09-30T20:00:00Z",
+          "state": { "name": "Parked", "type": "somethingnew" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "identifier": "ISS-4",
+          "title": "Bad link host is dropped",
+          "url": "https://evil.example/ws/issue/ISS-4",
+          "updatedAt": "2026-09-30T19:00:00Z",
+          "state": { "name": "Todo", "type": "unstarted" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "identifier": "no key here",
+          "title": "Bad identifier is dropped",
+          "url": "https://linear.app/ws/issue/x",
+          "updatedAt": "2026-09-30T19:00:00Z",
+          "state": { "name": "Todo", "type": "unstarted" },
+          "team": { "key": "ISS" }
+        },
+        {
+          "title": "No identifier is dropped",
+          "url": "https://linear.app/ws/issue/y",
+          "updatedAt": "2026-09-30T19:00:00Z",
+          "state": { "name": "Todo", "type": "unstarted" },
+          "team": { "key": "ISS" }
+        }
+      ],
+      "pageInfo": { "hasNextPage": true, "endCursor": "cursor-1" }
+    }
+  }
+}

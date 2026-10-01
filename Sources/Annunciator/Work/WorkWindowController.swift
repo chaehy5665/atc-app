@@ -3,8 +3,9 @@ import AppKit
 import ATCCore
 import Combine
 
-/// The Work window (ATC-247, design 11.3): one small AppKit list of open PRs. No editor, no detail pane, no search.
-/// A row click opens the PR in the default browser; "Decide in atc ↗" opens the atc window at STRIPS. The rows,
+/// The Work window (ATC-247, ATC-248, design 11.3): one small AppKit list, GitHub PRs or Linear issues (a switch at
+/// the top). No editor, no detail pane, no search. A row click opens the PR or issue in the default browser;
+/// "Decide in atc ↗" opens the atc window at STRIPS (a PR) or at the FLIGHT drawer of the issue key. The rows,
 /// labels and links come from ATCCore (`WorkPanel`, `LinkRoute.workLink`); titles are shown as plain text.
 @MainActor
 final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
@@ -22,7 +23,9 @@ final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSou
     private var table = NSTableView()
     private let headerLabel = NSTextField(labelWithString: "")
     private var filterControl: NSSegmentedControl?
+    private var sourceControl: NSSegmentedControl?
     private var rows: [WorkRow] = []
+    private var issueRows: [LinearRow] = []
     private var watch: AnyCancellable?
 
     init(work: WorkModel, model: AppModel) {
@@ -56,11 +59,14 @@ final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSou
         let filter = NSSegmentedControl(labels: ["All", "Review requested"], trackingMode: .selectOne, target: self, action: #selector(filterChanged))
         filter.selectedSegment = work.filter == .all ? 0 : 1
         filterControl = filter
+        let source = NSSegmentedControl(labels: ["GitHub PR", "Linear"], trackingMode: .selectOne, target: self, action: #selector(sourceChanged))
+        source.selectedSegment = work.source == .github ? 0 : 1
+        sourceControl = source
         let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshClicked))
         refresh.bezelStyle = .rounded
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let bar = NSStackView(views: [filter, spacer, refresh])
+        let bar = NSStackView(views: [source, filter, spacer, refresh])
         bar.orientation = .horizontal
 
         headerLabel.font = .systemFont(ofSize: 11)
@@ -114,13 +120,29 @@ final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSou
 
     private func reload() {
         guard window != nil else { return }
-        rows = work.rows
-        headerLabel.stringValue = work.signedIn ? work.header : "GitHub에 로그인하세요 (Settings)"
-        if !work.signedIn { rows = [] }
+        sourceControl?.selectedSegment = work.source == .github ? 0 : 1
+        filterControl?.isHidden = work.source != .github
+        switch work.source {
+        case .github:
+            rows = work.signedIn ? work.rows : []
+            issueRows = []
+            headerLabel.stringValue = work.signedIn ? work.header : "GitHub에 로그인하세요 (Settings)"
+        case .linear:
+            rows = []
+            issueRows = work.linearSignedIn ? work.linearRows : []
+            headerLabel.stringValue = work.linearSignedIn
+                ? (work.teams.isEmpty ? "Settings에 Linear 팀 키를 추가하세요" : work.linearHeader)
+                : "Linear에 로그인하세요 (Settings)"
+        }
         table.reloadData()
     }
 
     // MARK: Actions
+
+    @objc private func sourceChanged() {
+        work.source = sourceControl?.selectedSegment == 1 ? .linear : .github
+        reload()
+    }
 
     @objc private func filterChanged() {
         work.filter = filterControl?.selectedSegment == 1 ? .reviewRequested : .all
@@ -132,24 +154,35 @@ final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSou
     /// A click on the row (not on its button): the PR page in the default browser.
     @objc private func rowClicked() {
         let r = table.clickedRow
-        guard rows.indices.contains(r), let url = rows[r].url else { return }
+        let url = work.source == .github ? (rows.indices.contains(r) ? rows[r].url : nil) : (issueRows.indices.contains(r) ? issueRows[r].url : nil)
+        guard let url else { return }
         NSWorkspace.shared.open(url)
     }
 
-    private func decide() {
-        LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + WorkPanel.atcFragment))
+    /// `fragment` is `strips` for a PR and `flight/<KEY>` for an issue (both built in ATCCore).
+    private func decide(_ fragment: String) {
+        LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + fragment))
     }
 
     // MARK: Table
 
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { work.source == .github ? rows.count : issueRows.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard rows.indices.contains(row) else { return nil }
         let cell = (tableView.makeView(withIdentifier: Self.cellID, owner: self) as? WorkRowCell) ?? WorkRowCell(frame: .zero)
         cell.identifier = Self.cellID
-        cell.configure(rows[row])
-        cell.onDecide = { [weak self] in self?.decide() }
+        if work.source == .github {
+            guard rows.indices.contains(row) else { return nil }
+            cell.configure(rows[row])
+            cell.onDecide = { [weak self] in self?.decide(WorkPanel.atcFragment) }
+        } else {
+            guard issueRows.indices.contains(row) else { return nil }
+            let issue = issueRows[row]
+            cell.configure(issue)
+            cell.onDecide = { [weak self] in
+                if let fragment = issue.atcFragment { self?.decide(fragment) }
+            }
+        }
         return cell
     }
 
@@ -161,6 +194,7 @@ final class WorkWindowController: NSObject, NSWindowDelegate, NSTableViewDataSou
         let closing = window
         window = nil
         filterControl = nil
+        sourceControl = nil
         closing?.delegate = nil
         closing?.contentView = nil
         table.dataSource = nil
@@ -235,7 +269,25 @@ final class WorkRowCell: NSTableCellView {
         }
         reviewField.stringValue = row.reviewLabel ?? ""
         reviewField.isHidden = row.reviewLabel == nil
+        decideButton.isHidden = false
         setAccessibilityLabel([row.title, row.detail, row.ciLabel, row.reviewLabel].compactMap { $0 }.joined(separator: ", "))
+    }
+
+    /// An issue row: the state name where a PR row has its CI word, coloured by Linear's state type.
+    func configure(_ row: LinearRow) {
+        titleField.stringValue = row.title
+        titleField.toolTip = row.title
+        detailField.stringValue = row.detail
+        ciField.stringValue = row.stateName
+        switch row.stateType {
+        case .started: ciField.textColor = .systemOrange
+        case .unstarted: ciField.textColor = .labelColor
+        default: ciField.textColor = .secondaryLabelColor
+        }
+        reviewField.stringValue = ""
+        reviewField.isHidden = true
+        decideButton.isHidden = row.atcFragment == nil
+        setAccessibilityLabel([row.title, row.detail, row.stateName].joined(separator: ", "))
     }
 
     @objc private func decideClicked() { onDecide?() }

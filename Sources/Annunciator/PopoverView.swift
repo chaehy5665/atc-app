@@ -20,7 +20,7 @@ struct PopoverView: View {
     }
 
     private func content(_ panel: PanelContent, now: Date) -> some View {
-        let status = StatusRows(duty: model.duty, work: work.line(now: now), radio: RadioHint(model.radio))
+        let status = StatusRows(duty: model.duty, work: work.line(now: now), linear: work.linearLine(now: now), radio: RadioHint(model.radio))
         return VStack(alignment: .leading, spacing: 0) {
             if let notice = panel.notice {
                 Text(notice)
@@ -155,8 +155,9 @@ struct PopoverView: View {
                 .help(row.text)
                 .accessibilityLabel(row.text + (row.dot.map { ", " + $0.rawValue } ?? ""))
                 .accessibilityHint("atc에서 엽니다")
-        case .work:
-            Button(action: openWork) { line }
+        case .work, .linear:
+            // The Work window opens on the list of the line that was clicked.
+            Button { work.source = row.kind == .linear ? .linear : .github; openWork() } label: { line }
                 .buttonStyle(.plain)
                 .help(row.text)
                 .accessibilityHint("Work 창을 엽니다")
