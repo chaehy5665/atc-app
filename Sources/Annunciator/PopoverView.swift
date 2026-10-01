@@ -8,16 +8,18 @@ import SwiftUI
 struct PopoverView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: PopoverState
+    @ObservedObject var work: WorkModel
     var openSettings: () -> Void
+    var openWork: () -> Void
 
     var body: some View {
         // Re-evaluated every minute so the ages keep moving without a feed change.
         TimelineView(.everyMinute) { context in
-            content(PanelContent(model.feed, base: model.baseURL, now: context.date))
+            content(PanelContent(model.feed, base: model.baseURL, now: context.date), now: context.date)
         }
     }
 
-    private func content(_ panel: PanelContent) -> some View {
+    private func content(_ panel: PanelContent, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let notice = panel.notice {
                 Text(notice)
@@ -27,7 +29,7 @@ struct PopoverView: View {
                 if panel.notice == PanelContent.unreachableNotice { ForwardLineView(forward: model.forward) }
                 Spacer(minLength: 0)
             } else {
-                strip(panel)
+                strip(panel, now: now)
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
@@ -41,12 +43,12 @@ struct PopoverView: View {
         }
         .frame(
             width: PanelLayout.width,
-            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on, dutyLine: model.duty != nil))
+            height: PanelLayout.height(for: panel, expansion: state.expansion, radioLine: model.radioPrefs.on, dutyLine: model.duty != nil, workLine: work.line(now: now) != nil))
     }
 
     // MARK: Fixed strip
 
-    @ViewBuilder private func strip(_ panel: PanelContent) -> some View {
+    @ViewBuilder private func strip(_ panel: PanelContent, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 ForEach(panel.tiles) { tile in
@@ -93,6 +95,7 @@ struct PopoverView: View {
             Text(panel.statusLine).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
                 .help(panel.statusLine)
             if let lamp = model.duty { dutyRow(lamp) }
+            if let line = work.line(now: now) { workRow(line) }
             if let hint = RadioHint(model.radio) {
                 HStack(spacing: 6) {
                     Text(hint.title).font(.caption2.weight(.bold)).foregroundStyle(Color.accentColor)
@@ -120,6 +123,21 @@ struct PopoverView: View {
         .help(lamp.tooltip)
         .accessibilityLabel(lamp.tooltip + ", " + lamp.dot.rawValue)
         .accessibilityHint("atc에서 엽니다")
+    }
+
+    /// "GitHub: 3 open · 1 CI failing" (raw GitHub counts, never the MASTER light); a click opens the Work window.
+    private func workRow(_ line: WorkLine) -> some View {
+        Button(action: openWork) {
+            HStack(spacing: 6) {
+                Text(line.text).font(.caption.monospaced()).foregroundStyle(line.isNotice ? Color.orange : Color.secondary).lineLimit(1)
+                Spacer(minLength: 0)
+                Text("↗").font(.caption).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(line.text)
+        .accessibilityHint("Work 창을 엽니다")
     }
 
     private func dutyColor(_ dot: DutyDot) -> Color {

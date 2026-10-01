@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var settingsWindow: NSWindow?
     private lazy var atcWindow = AtcWindowController(model: model)
+    private lazy var work = WorkModel(signIn: model.signIn)
+    private lazy var workWindow = WorkWindowController(work: work, model: model)
     private var activity: NSObjectProtocol?
     private let pathMonitor = NWPathMonitor()
 
@@ -27,15 +29,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let host = NSHostingController(
-            rootView: PopoverView(model: model, state: popoverState, openSettings: { [weak self] in self?.showSettings() }))
+            rootView: PopoverView(
+                model: model, state: popoverState, work: work,
+                openSettings: { [weak self] in self?.showSettings() }, openWork: { [weak self] in self?.showWork() }))
         // The popover follows the content height (PanelLayout: 240...640 pt).
         host.sizingOptions = [.preferredContentSize]
         popover.contentViewController = host
 
         atcWindow.onWillShow = { [weak self] in self?.popover.performClose(nil) }
+        atcWindow.keepsAppRegular = { [weak self] in self?.workWindow.isOpen ?? false }
+        workWindow.onWillShow = { [weak self] in self?.popover.performClose(nil) }
+        workWindow.isAtcOpen = { [weak self] in self?.atcWindow.isOpen ?? false }
         LinkOpener.model = model
         LinkOpener.window = atcWindow
-        NSApp.mainMenu = MainMenu.build(settings: #selector(openSettings), duty: #selector(openDuty), target: self, window: atcWindow)
+        NSApp.mainMenu = MainMenu.build(
+            settings: #selector(openSettings), duty: #selector(openDuty), work: #selector(openWork), target: self, window: atcWindow)
 
         model.onFeedChange = { [weak self] in
             self?.render()
@@ -111,8 +119,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// The DUTY row is read only while the popover is open (D6).
-    func popoverWillShow(_ notification: Notification) { model.setDutyPolling(true) }
-    func popoverDidClose(_ notification: Notification) { model.setDutyPolling(false) }
+    /// The PR list is read on the same terms (ATC-247): while the popover or the Work window is open.
+    func popoverWillShow(_ notification: Notification) {
+        model.setDutyPolling(true)
+        work.setViewing("popover", true)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        model.setDutyPolling(false)
+        work.setViewing("popover", false)
+    }
 
     /// Closing the atc window leaves the menu bar item running.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -124,10 +140,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         LinkOpener.open(ATCLink.url(base: model.baseURL, link: "#" + DutyLamp.fragment))
     }
 
+    /// Window > Work (⌘⇧W) and the popover's GitHub line.
+    @objc private func openWork() { showWork() }
+
+    private func showWork() { workWindow.show() }
+
     private func showSettings() {
         popover.performClose(nil)
         if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model, form: SettingsForm(), forward: model.forward, signIn: model.signIn)))
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model, form: SettingsForm(), forward: model.forward, signIn: model.signIn, work: work)))
             window.title = "ANNUNCIATOR Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false

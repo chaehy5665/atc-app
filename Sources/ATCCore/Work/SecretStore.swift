@@ -13,6 +13,8 @@ public struct SecretKey: Hashable, Sendable {
     public enum Kind: String, Sendable, CaseIterable {
         case access
         case refresh
+        /// When the access token dies (`TokenPolicy`, ATC-247). Not a secret; it rests here so sign-out deletes it too.
+        case expiry
     }
 
     public let service: Service

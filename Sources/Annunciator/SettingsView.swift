@@ -17,6 +17,9 @@ final class SettingsForm: ObservableObject {
     @Published var githubClientInvalid = false
     @Published var linearClientText = ""
     @Published var linearClientInvalid = false
+    @Published var repoText = ""
+    @Published var repoRejected: [String] = []
+    @Published var capText = ""
 }
 
 struct SettingsView: View {
@@ -24,6 +27,7 @@ struct SettingsView: View {
     @ObservedObject var form: SettingsForm
     @ObservedObject var forward: ForwardMonitor
     @ObservedObject var signIn: SignInModel
+    @ObservedObject var work: WorkModel
 
     var body: some View {
         Form {
@@ -61,6 +65,8 @@ struct SettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
             Divider()
             accountsSection
+            Divider()
+            workSection
             Divider()
             Picker("atc 열기", selection: $model.linkPreference) {
                 Text("앱 창").tag(LinkPreference.window)
@@ -119,6 +125,8 @@ struct SettingsView: View {
             signIn.refresh()
             form.githubClientText = signIn.githubClientID
             form.linearClientText = signIn.linearClientID
+            form.repoText = work.repoText
+            form.capText = String(work.cap)
             form.launchAtLogin = model.launchAtLogin
             form.quietFrom = AppModel.clock(model.notifyPrefs.quiet.from)
             form.quietTo = AppModel.clock(model.notifyPrefs.quiet.to)
@@ -128,7 +136,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var accountsSection: some View {
         Text("GitHub · Linear").font(.headline)
-        Text("앱 자신의 토큰을 Keychain에만 보관합니다. 지금은 로그인만 되고 데이터는 가져오지 않습니다.")
+        Text("앱 자신의 토큰을 Keychain에만 보관합니다. GitHub는 아래 저장소의 PR 목록을 읽습니다. Linear는 아직 로그인만 됩니다.")
             .font(.caption).foregroundStyle(.secondary)
         TextField("GitHub App client ID", text: $form.githubClientText).onSubmit(applyGitHubClient)
         if form.githubClientInvalid {
@@ -177,6 +185,42 @@ struct SettingsView: View {
         }
         if !signIn.linearMessage.isEmpty { Text(signIn.linearMessage).font(.caption) }
         Text("Linear redirect URI: \(LinearAuth.redirectURI)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private var workSection: some View {
+        Text("GitHub PR 목록 (Work 창)").font(.headline)
+        Text("저장소를 한 줄에 하나씩 owner/name 으로 적습니다. 읽기만 하고, 팝오버나 Work 창이 열려 있을 때만 60초마다 가져옵니다.")
+            .font(.caption).foregroundStyle(.secondary)
+        TextEditor(text: $form.repoText)
+            .font(.system(.body, design: .monospaced))
+            .frame(height: 70)
+            .border(Color.secondary.opacity(0.4))
+        if !form.repoRejected.isEmpty {
+            Text("owner/name 형식이 아닙니다: " + form.repoRejected.joined(separator: ", ")).font(.caption).foregroundStyle(.red)
+        }
+        HStack {
+            Button("Apply", action: applyRepos)
+            Text("시간당 요청 상한").font(.caption)
+            TextField("", text: $form.capText).frame(width: 60).onSubmit(applyCap)
+            Button("Apply", action: applyCap)
+        }
+        Text("이번 시간 사용 \(work.usageText). 상한은 \(RateBudget.capRange.lowerBound)~\(RateBudget.capRange.upperBound), 기본 \(RateBudget.defaultCap)(GitHub 한도 5,000의 20%). 304는 세지 않습니다.")
+            .font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func applyRepos() {
+        form.repoRejected = work.setRepos(form.repoText)
+        if form.repoRejected.isEmpty { form.repoText = work.repoText }
+    }
+
+    private func applyCap() {
+        guard let value = Int(form.capText.trimmingCharacters(in: .whitespaces)) else {
+            form.capText = String(work.cap)
+            return
+        }
+        work.setCap(value)
+        form.capText = String(work.cap)
     }
 
     private func applyGitHubClient() {
