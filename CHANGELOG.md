@@ -5,6 +5,7 @@
 
 ### Changed
 
+- Design links only (ATC-259): `docs/design.md` N5, D3, D9, D12c and section 10.3 point at atc's `docs/app-token.md` (ATC-250) and mark what is decided (merge goes through atc's MERGE route, not the GitHub API) and what is proposed (the app token). No behaviour changes.
 - License changed from GPL-3.0-or-later to Apache-2.0 for future versions, together with atc (ATC-215): `LICENSE` is the Apache License 2.0 text, `NOTICE` is new, and the SPDX headers, READMEs and `CLAUDE.md` follow. Versions released earlier remain GPL-3.0-or-later. Code from other projects may now come only under MIT, BSD, Apache-2.0 or ISC. Comment headers only; no code or build output changes.
 - Design draft only (ATC-240, D12): `docs/design.md` section 11 proposes GitHub and Linear inside the app with the app's own Keychain tokens (read only first, no merge from the app). The lines it would reverse (sections 2, 3, 9, 10.2 and `CLAUDE.md`) are marked proposed and stay in force until the SUPERVISOR decides. No behaviour changes.
 
