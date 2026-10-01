@@ -254,7 +254,7 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     }
 
     private func readLinearTokens() -> [(String, SecretKey.Kind)] {
-        SecretKey.Kind.allCases.compactMap { kind in
+        [SecretKey.Kind.access, .refresh].compactMap { kind in
             guard let t = (try? store.read(SecretKey(.linear, kind))) ?? nil else { return nil }
             return (t, kind)
         }
@@ -263,12 +263,7 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     // MARK: Helpers
 
     private func save(_ tokens: TokenSet, service: SecretKey.Service) throws {
-        try store.write(tokens.accessToken, for: SecretKey(service, .access))
-        if let refresh = tokens.refreshToken {
-            try store.write(refresh, for: SecretKey(service, .refresh))
-        } else {
-            try store.delete(SecretKey(service, .refresh))
-        }
+        try TokenPolicy.save(tokens, service: service, in: store, now: Date())
     }
 
     private func fail(_ service: SecretKey.Service, _ text: String) {

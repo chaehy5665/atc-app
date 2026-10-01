@@ -38,7 +38,7 @@ final class SecretStoreTests: XCTestCase {
         }
         let s = Flaky()
         XCTAssertThrowsError(try s.deleteAll(.linear))
-        XCTAssertEqual(s.deleted.count, 2)
+        XCTAssertEqual(s.deleted.count, SecretKey.Kind.allCases.count, "every item is tried, the expiry (ATC-247) included")
     }
 }
 

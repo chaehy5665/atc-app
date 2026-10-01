@@ -21,6 +21,18 @@ public enum LinkRoute: Equatable, Sendable {
         return .window(fragment: URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedFragment)
     }
 
+    /// Hosts a Work row (GitHub PR, Linear issue) may open. Titles and URLs from those services are untrusted data.
+    public static let workHosts: Set<String> = ["github.com", "linear.app"]
+
+    /// A link taken from GitHub or Linear data: the URL itself if it is https on a work host (no user info,
+    /// default port), else nil and nothing opens. Always opens in the browser, never in the atc window.
+    public static func workLink(_ url: URL) -> URL? {
+        guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased(), workHosts.contains(host),
+              url.user == nil, url.password == nil, url.port == nil || url.port == 443
+        else { return nil }
+        return url
+    }
+
     /// Scheme, host and port equal; the default port of http (80) and https (443) counts as given.
     public static func sameOrigin(_ a: URL, _ b: URL) -> Bool {
         guard let x = origin(a), let y = origin(b) else { return false }

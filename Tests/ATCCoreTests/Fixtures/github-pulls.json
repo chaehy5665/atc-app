@@ -1,0 +1,40 @@
+[
+  {
+    "html_url": "https://github.com/octo/repo-a/pull/12",
+    "number": 12,
+    "state": "open",
+    "title": "Add a retry to the sync step",
+    "user": { "login": "user-1", "type": "User" },
+    "draft": false,
+    "updated_at": "2026-10-01T09:30:00Z",
+    "head": { "ref": "feature-a", "sha": "1111111111111111111111111111111111111111" },
+    "requested_reviewers": [ { "login": "user-2" }, { "login": "User-9" } ],
+    "requested_teams": [ { "slug": "team-a", "name": "Team A" } ]
+  },
+  {
+    "html_url": "https://github.com/octo/repo-a/pull/9",
+    "number": 9,
+    "state": "open",
+    "title": "WIP: rework the cache",
+    "user": { "login": "user-3" },
+    "draft": true,
+    "updated_at": "2026-09-30T18:00:00Z",
+    "head": { "ref": "wip-cache", "sha": "2222222222222222222222222222222222222222" },
+    "requested_reviewers": [],
+    "requested_teams": []
+  },
+  {
+    "html_url": "https://example.test/octo/repo-a/pull/7",
+    "number": 7,
+    "title": "A page URL on another host is skipped",
+    "user": { "login": "user-1" },
+    "updated_at": "2026-09-30T12:00:00Z",
+    "head": { "sha": "3333333333333333333333333333333333333333" }
+  },
+  {
+    "html_url": "https://github.com/octo/repo-a/pull/5",
+    "title": "No number, skipped",
+    "updated_at": "2026-09-30T12:00:00Z",
+    "head": { "sha": "4444444444444444444444444444444444444444" }
+  }
+]

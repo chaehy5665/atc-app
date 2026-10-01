@@ -14,6 +14,8 @@ final class AtcWindowController: NSObject, NSWindowDelegate, WKNavigationDelegat
     private let model: AppModel
     /// Called before the window comes forward (the popover closes).
     var onWillShow: (() -> Void)?
+    /// True while another app window (the Work window) is open, so closing this one keeps the Dock icon.
+    var keepsAppRegular: (() -> Bool)?
 
     private var window: NSWindow?
     private var webView: WKWebView?
@@ -165,7 +167,7 @@ final class AtcWindowController: NSObject, NSWindowDelegate, WKNavigationDelegat
         // Keep the window object alive until AppKit is done with it.
         DispatchQueue.main.async { _ = closing }
         NSApp.dockTile.badgeLabel = nil
-        NSApp.setActivationPolicy(.accessory)
+        if !(keepsAppRegular?() ?? false) { NSApp.setActivationPolicy(.accessory) }
     }
 
     // MARK: WKNavigationDelegate
