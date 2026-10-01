@@ -28,6 +28,7 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
   - `Tools/test-linux.sh`의 `FORBIDDEN_MACROS`가 앱 소스(주석 포함)에서 금지 매크로를 찾으면 실패한다. 새로 막힌 매크로를 찾으면 거기에 더한다.
 - 공개되지 않은 시스템 API(private framework, MediaRemote, HID 이벤트 등)를 쓰지 않는다.
 - atc는 **읽기만** 한다: GET과 SSE(`/api/events`). 쓰기 요청을 보내지 않는다. 쓰기는 따로 인증 설계를 채택한 뒤다(design.md N5).
+- GitHub·Linear는 로그인한 뒤 앱 자신의 Keychain 토큰으로만 부른다(design.md 11절, D12). atc의 `gh` 토큰이나 `LINEAR_API_KEY`를 쓰지 않는다. 머지는 앱에서 절대 하지 않는다(LANDING만). 쓰기는 `WritePolicy`에 있는 것(GL2: Linear 댓글과 Backlog·Todo·Canceled 상태 이동)만 한다. 토큰은 Keychain에만 두고, 로그·파일·UserDefaults·fixture에 남기지 않는다.
   - (제안, design.md 11 — SUPERVISOR가 정하기 전까지는 이 줄과 위 "외부 의존성"·네트워크 규칙이 그대로다) GitHub·Linear는 앱이 자기 토큰(Keychain)으로 직접 부른다(D12). 읽기 먼저, **머지는 앱에서 하지 않는다**(LANDING만), 쓰기는 `WritePolicy`에 적힌 것만. 토큰은 Keychain 밖 어디에도(파일·로그·UserDefaults·저장소) 두지 않는다.
 - 서버가 정한 등급·문구·숫자를 그대로 보인다. atc의 규칙을 앱에서 다시 계산하지 않는다.
 - 번들 ID와 코드에 실제 이름·이메일·회사명을 넣지 않는다(번들 ID는 `dev.atc.annunciator`).
