@@ -74,6 +74,8 @@ Related, in the atc repository: [docs/mac-app.md](https://github.com/chaehy5665/
 
 ## 3. Principles
 
+> These are the app's architecture principles. How the app looks and behaves on screen (levels, colour, folds, the menu bar icon, the popover's status row group) follows atc's [design-language.md](https://github.com/chaehy5665/atc/blob/main/docs/design-language.md) (adopted 2026-10-01; sections 2, 3.4, 3.5 and 4.5).
+
 1. **The server decides, the app shows.** Levels, texts, counts, "what is pending" and the title numbers come from the server as data. The app doesn't re-derive atc rules, so the browser, the SwiftBar plugin and the app always agree.
 2. **Read only until there is an access model.** Adding writes means adding real authentication for SUPERVISOR routes. That is a separate design with `Risk: Security`, not a side effect of the app. *(Section 11 (D12, decided 2026-10-01): this stays true for atc. GitHub and Linear are a different trust boundary with their own rules in 11.2 and 11.4: read only first, no merge ever, and only the writes listed in `WritePolicy`.)*
 3. **A pure core tested on Linux.** Everything that isn't AppKit or SwiftUI (decoding, SSE parsing, reconnect backoff, seen-key diff, formatting) lives in a Foundation-only target. Team sessions test it in the `swift` Docker image on the host.
