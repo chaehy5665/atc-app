@@ -31,50 +31,6 @@ public enum Connection: Equatable, Sendable {
     case unsupported
 }
 
-/// What the menu bar item shows.
-public struct StatusBarTitle: Equatable, Sendable {
-    public enum Symbol: Equatable, Sendable {
-        /// Filled circle in the MASTER colour (a plain plane when the light is off).
-        case light(MasterLight)
-        /// Grey `✈ —`.
-        case unreachable
-    }
-
-    public var symbol: Symbol
-    /// Text after the symbol: "23 +13 5h 45% · 7d 55%". Empty when there is nothing to add.
-    public var text: String
-    /// Plain-text form for logs.
-    public var plain: String
-    /// Spoken form: "WARNING 2, CAUTION 23, advisory 13, 5h 16% · 7d 66%".
-    public var accessibility: String
-
-    /// Same rule as atc's `menubar/format.mjs` `titleOf`: `warning + caution`, then ` +advisory`
-    /// when not zero, then FUEL. The colour comes from the server's `master`, not from the counts.
-    public init(_ feed: FeedState) {
-        if feed.connection == .live, let summary = feed.summary {
-            let c = summary.counts
-            let fuel = FuelFormat.line(summary.fuel)
-            var count = "\(c.warning + c.caution)"
-            if c.advisory > 0 { count += " +\(c.advisory)" }
-            symbol = .light(MasterState(summary: summary).light)
-            text = [count, fuel].filter { !$0.isEmpty }.joined(separator: " ")
-            plain = "✈ " + text
-            var spoken: [String] = []
-            if c.warning > 0 { spoken.append("WARNING \(c.warning)") }
-            if c.caution > 0 { spoken.append("CAUTION \(c.caution)") }
-            if c.advisory > 0 { spoken.append("advisory \(c.advisory)") }
-            if spoken.isEmpty { spoken.append("no alerts") }
-            if !fuel.isEmpty { spoken.append(fuel) }
-            accessibility = spoken.joined(separator: ", ")
-        } else {
-            symbol = .unreachable
-            text = "—"
-            plain = "✈ —"
-            accessibility = "atc unreachable"
-        }
-    }
-}
-
 // MARK: - Height
 
 /// Popover height that fits the content. An estimate, so it can be tested; the lamp list scrolls the rest.
@@ -83,17 +39,23 @@ public enum PanelLayout {
     public static let minHeight = 240.0
     public static let maxHeight = 640.0
 
-    static let strip = 64.0, chips = 34.0, fuelRow = 22.0, statusLine = 22.0, footer = 46.0, radioLine = 22.0, dutyLine = 22.0, workLine = 22.0
-    static let sectionHeader = 26.0, lampRow = 38.0, toggle = 26.0, padding = 24.0
+    static let tiles = 64.0, normalLine = 30.0, groupHeader = 26.0, groupItem = 24.0, statusLine = 24.0
+    static let fuelBar = 26.0, footer = 46.0
+    static let sectionHeader = 26.0, lampRow = 30.0, toggle = 26.0, padding = 24.0
 
-    public static func height(for panel: PanelContent, expansion: LampExpansion, radioLine hasRadio: Bool = false, dutyLine hasDuty: Bool = false, workLine hasWork: Bool = false) -> Double {
+    /// `openGroups` are the ids of the `InfoGroup`s the user opened; `statusOpened` is the status group's disclosure.
+    public static func height(
+        for panel: PanelContent, expansion: LampExpansion, status: StatusRows = .none,
+        openGroups: Set<String> = [], statusOpened: Bool = false
+    ) -> Double {
         guard panel.notice == nil else { return minHeight }
-        var h = strip + statusLine + footer + padding
-        if hasRadio { h += radioLine }
-        if hasDuty { h += dutyLine }
-        if hasWork { h += workLine }
-        if !panel.pending.isEmpty || !panel.needsYouChips.isEmpty { h += chips }
-        h += Double(panel.fuel.count) * fuelRow
+        var h = footer + padding
+        h += panel.allNormal ? normalLine : tiles
+        for group in panel.groups {
+            h += groupHeader + Double(group.visibleItems(expanded: openGroups.contains(group.id)).count) * groupItem
+        }
+        h += Double(status.lineCount(opened: statusOpened)) * statusLine
+        if panel.fuelBar != nil { h += fuelBar }
         for section in panel.sections {
             let expanded = expansion.isExpanded(section.level)
             h += sectionHeader + Double(section.visibleRows(expanded: expanded).count) * lampRow
@@ -262,6 +224,14 @@ public struct PanelContent: Equatable, Sendable {
     /// "RTS OK 0e28276 → d5c6346 · 03:22Z · AIRCRAFT 3 · CONTROL 2" (monospaced).
     public var statusLine = ""
     public var hasSummary = false
+    /// No WARNING and no CAUTION: the tiles give way to one line.
+    public var allNormal = false
+    /// The line shown then. atc sends no text for it, so it is the app's own.
+    public static let allNormalText = "✓ all normal"
+    /// Header rows under the LAMP list, in this order; only those that have something to show.
+    public var groups: [InfoGroup] = []
+    /// One thin bar: the FUEL window closest to its limit, with its number. nil without a number.
+    public var fuelBar: FuelRow?
 
     public static let connectingNotice = "atc에 연결하는 중…"
     public static let unreachableNotice = "atc 연결 안 됨 — SSH 포워딩을 확인하세요"
@@ -277,8 +247,8 @@ public struct PanelContent: Equatable, Sendable {
         // Stale data stays hidden while the notice shows, so a grey light never sits beside live-looking numbers.
         guard notice == nil else { return }
 
-        let groups = LampGroups(feed.alerts)
-        for (level, alerts) in [(AlertLevel.warning, groups.warning), (.caution, groups.caution), (.advisory, groups.advisory)]
+        let lampGroups = LampGroups(feed.alerts)
+        for (level, alerts) in [(AlertLevel.warning, lampGroups.warning), (.caution, lampGroups.caution), (.advisory, lampGroups.advisory)]
         where !alerts.isEmpty {
             sections.append(LampSection(level: level, rows: alerts.map { Self.row($0, level: level, base: base, now: now) }))
         }
@@ -318,6 +288,23 @@ public struct PanelContent: Equatable, Sendable {
             AnnunciatorTile(level: .advisory, label: "ADVISORY", count: s.counts.advisory),
         ]
         statusLine = ([rts] + ["AIRCRAFT \(workingAircraft)", "CONTROL \(workingControl)"]).compactMap { $0 }.joined(separator: " · ")
+        allNormal = s.counts.warning == 0 && s.counts.caution == 0
+        fuelBar = fuel.filter { $0.fraction != nil }.max { ($0.fraction ?? 0) < ($1.fraction ?? 0) }
+        let pendingTotal = pending.reduce(0) { $0 + $1.count }
+        if pendingTotal > 0 {
+            groups.append(InfoGroup(
+                id: "pending", header: "PENDING \(pendingTotal)",
+                items: pending.map { InfoItem(id: $0.id, text: "\($0.title) \($0.count)", url: $0.url) }))
+        }
+        if !needsYouChips.isEmpty {
+            groups.append(InfoGroup(
+                id: "needsYou", header: "NEEDS YOU \(needsYouChips.count)",
+                items: needsYouChips.map { InfoItem(id: $0.id, text: $0.name, url: $0.url) }))
+        }
+        if let rts { groups.append(InfoGroup(id: "rts", header: rts, items: [])) }
+        if workingAircraft > 0 || workingControl > 0 {
+            groups.append(InfoGroup(id: "working", header: "AIRCRAFT \(workingAircraft) · CONTROL \(workingControl)", items: []))
+        }
     }
 
     private static func row(_ a: SupervisorAlert, level: AlertLevel, base: URL, now: Date) -> LampRow {

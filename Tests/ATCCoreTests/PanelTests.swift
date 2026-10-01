@@ -44,65 +44,71 @@ final class PanelTests: XCTestCase {
         return f
     }
 
-    func testTitleLive() throws {
-        let t = StatusBarTitle(try live())
-        XCTAssertEqual(t.symbol, .light(.caution))
-        XCTAssertEqual(t.text, "21 +9 5h 6% · 7d 65%")
-        XCTAssertEqual(t.plain, "✈ 21 +9 5h 6% · 7d 65%")
-        XCTAssertEqual(t.accessibility, "CAUTION 21, advisory 9, 5h 6% · 7d 65%")
+    func testTitleCautionHasDotCountAndNeedsYou() throws {
+        let t = MenuTitle(try live())
+        XCTAssertEqual(t.glyph, .caution)
+        XCTAssertEqual(t.count, 21)
+        XCTAssertTrue(t.needsYou)
+        XCTAssertNil(t.fuel)
+        XCTAssertEqual(t.text, "21")
+        XCTAssertEqual(t.accessibility, "CAUTION 21, advisory 9, needs you 1, 5h 6% · 7d 65%")
     }
 
-    func testTitleWarningOnly() throws {
-        let t = StatusBarTitle(try feed(.init(warning: 2), master: .warning))
-        XCTAssertEqual(t.symbol, .light(.warning))
-        XCTAssertEqual(t.text, "2 5h 6% · 7d 65%")
-        XCTAssertEqual(t.accessibility, "WARNING 2, 5h 6% · 7d 65%")
+    func testTitleWarningCountsWarningsOnly() throws {
+        let t = MenuTitle(try feed(.init(warning: 2, caution: 23, advisory: 13), master: .warning))
+        XCTAssertEqual(t.glyph, .warning)
+        XCTAssertEqual(t.count, 2)
+        XCTAssertEqual(t.accessibility, "WARNING 2, CAUTION 23, advisory 13, needs you 1, 5h 6% · 7d 65%")
     }
 
-    func testTitleCountIsWarningPlusCautionAndAdvisoryIsSeparate() throws {
-        let t = StatusBarTitle(try feed(.init(warning: 2, caution: 23, advisory: 13), master: .warning))
-        XCTAssertEqual(t.symbol, .light(.warning))
-        XCTAssertEqual(t.text, "25 +13 5h 6% · 7d 65%")
-        XCTAssertEqual(t.accessibility, "WARNING 2, CAUTION 23, advisory 13, 5h 6% · 7d 65%")
+    func testTitleAdvisoryOnlyIsIdle() throws {
+        let t = MenuTitle(try feed(.init(advisory: 13), master: .advisory))
+        XCTAssertEqual(t.glyph, .idle)
+        XCTAssertEqual(t.count, 0)
+        XCTAssertEqual(t.text, "")
     }
 
-    func testTitleCautionOnly() throws {
-        let t = StatusBarTitle(try feed(.init(caution: 4), master: .caution, fuel: false))
-        XCTAssertEqual(t.symbol, .light(.caution))
-        XCTAssertEqual(t.text, "4")
-        XCTAssertEqual(t.plain, "✈ 4")
+    func testTitleAllZeroIsIdleAndSpeaksNoAlerts() throws {
+        var f = try feed(.init(), master: nil, fuel: false)
+        f.summary?.needsYou = []
+        let t = MenuTitle(f)
+        XCTAssertEqual(t.glyph, .idle)
+        XCTAssertFalse(t.needsYou)
+        XCTAssertEqual(t.accessibility, "no alerts")
     }
 
-    func testTitleAdvisoryOnlyKeepsLightOff() throws {
-        let t = StatusBarTitle(try feed(.init(advisory: 13), master: .advisory))
-        XCTAssertEqual(t.symbol, .light(.off))
-        XCTAssertEqual(t.text, "0 +13 5h 6% · 7d 65%")
-        XCTAssertEqual(t.accessibility, "advisory 13, 5h 6% · 7d 65%")
+    func testTitleLevelFollowsMasterNotCounts() throws {
+        // The server decides the glyph; the counts only decide the number.
+        XCTAssertEqual(MenuTitle(try feed(.init(caution: 3), master: nil)).glyph, .idle)
     }
 
-    func testTitleAllZero() throws {
-        let t = StatusBarTitle(try feed(.init(), master: nil))
-        XCTAssertEqual(t.symbol, .light(.off))
-        XCTAssertEqual(t.text, "0 5h 6% · 7d 65%")
-        XCTAssertEqual(t.accessibility, "no alerts, 5h 6% · 7d 65%")
-        XCTAssertEqual(StatusBarTitle(try feed(.init(), master: nil, fuel: false)).text, "0")
+    func testTitleFuelOnlyWhenSettingIsOn() throws {
+        let on = MenuTitle(try live(), showFuel: true)
+        XCTAssertEqual(on.fuel, "5h 6% · 7d 65%")
+        XCTAssertEqual(on.text, "21 5h 6% · 7d 65%")
+        var noFuel = try live()
+        noFuel.summary?.fuel = nil
+        XCTAssertNil(MenuTitle(noFuel, showFuel: true).fuel)
+        XCTAssertEqual(MenuTitle(noFuel, showFuel: true).text, "21")
     }
 
-    func testTitleColourFollowsMasterNotCounts() throws {
-        // The server decides the light; the counts only decide the number.
-        XCTAssertEqual(StatusBarTitle(try feed(.init(caution: 3), master: nil)).symbol, .light(.off))
+    func testTitleIdleWithFuelShowsFuelAlone() throws {
+        let t = MenuTitle(try feed(.init(), master: nil), showFuel: true)
+        XCTAssertEqual(t.glyph, .idle)
+        XCTAssertEqual(t.text, "5h 6% · 7d 65%")
     }
 
-    func testTitleUnreachableIsGreyDash() throws {
+    func testTitleUnreachableIsGreySlashedAndDropsStaleNumbers() throws {
         for c in [Connection.connecting, .unreachable, .unsupported] {
             var feed = try live()
             feed.connection = c
-            let t = StatusBarTitle(feed)
-            XCTAssertEqual(t.symbol, .unreachable)
-            XCTAssertEqual(t.plain, "✈ —")
+            let t = MenuTitle(feed, showFuel: true)
+            XCTAssertEqual(t.glyph, .unreachable)
+            XCTAssertEqual(t.text, "")
+            XCTAssertFalse(t.needsYou)
             XCTAssertEqual(t.accessibility, "atc unreachable")
         }
-        XCTAssertEqual(StatusBarTitle(FeedState()).plain, "✈ —")
+        XCTAssertEqual(MenuTitle(FeedState()).glyph, .unreachable)
     }
 
     // MARK: links
@@ -170,7 +176,6 @@ final class PanelTests: XCTestCase {
         let p = PanelContent(feed, base: base)
         XCTAssertNil(p.rts)
         XCTAssertTrue(p.fuel.isEmpty)
-        XCTAssertEqual(StatusBarTitle(feed).text, "21 +9")
     }
 
     func testNoticesHideStaleData() throws {

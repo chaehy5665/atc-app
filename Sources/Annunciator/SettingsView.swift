@@ -96,6 +96,8 @@ struct SettingsView: View {
             Text("브라우저의 atc 화면에서 설정의 소리(음성)를 꺼 두세요. 앱과 브라우저가 함께 울리면 두 번 들립니다.")
                 .font(.caption).foregroundStyle(.secondary)
             Divider()
+            Toggle("메뉴 막대에 FUEL 표시 (기본 꺼짐, 노치가 있으면 폭이 모자랄 수 있음)", isOn: $model.showFuelInTitle)
+            Divider()
             Toggle("RADIO monitor (atc 무전을 앱에서 재생)", isOn: radioBinding(\.on))
             Picker("주파수", selection: radioBinding(\.freq)) {
                 ForEach(RadioFreq.allCases, id: \.self) { Text($0.rawValue).tag($0) }

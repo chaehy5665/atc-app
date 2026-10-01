@@ -211,6 +211,7 @@ final class RadioTests: XCTestCase {
 
     func testRadioLineAddsHeight() {
         let p = PanelContent(FeedState(), base: URL(string: "http://localhost:7700")!)
-        XCTAssertGreaterThanOrEqual(PanelLayout.height(for: p, expansion: LampExpansion(), radioLine: true), PanelLayout.height(for: p, expansion: LampExpansion()))
+        let status = StatusRows(duty: nil, work: nil, radio: RadioHint(live()))
+        XCTAssertGreaterThanOrEqual(PanelLayout.height(for: p, expansion: LampExpansion(), status: status), PanelLayout.height(for: p, expansion: LampExpansion()))
     }
 }

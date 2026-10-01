@@ -29,6 +29,14 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(linkPreference.rawValue, forKey: "linkPreference") }
     }
 
+    /// FUEL beside the menu bar glyph (ATC-222); off by default (width, the notch).
+    @Published var showFuelInTitle: Bool {
+        didSet { UserDefaults.standard.set(showFuelInTitle, forKey: Self.titleFuelKey); onTitleChange?() }
+    }
+    /// The title item redraws from this; it is not an atc feed change.
+    var onTitleChange: (() -> Void)?
+    private static let titleFuelKey = "titleFuel"
+
     /// The launchd SSH forward (ATC-204); does nothing while its host is empty.
     let forward = ForwardMonitor()
     /// GitHub and Linear sign-in (ATC-246): tokens in the Keychain, no data fetched yet.
@@ -54,6 +62,7 @@ final class AppModel: ObservableObject {
         notifyPrefs = Self.loadPrefs()
         linkPreference = UserDefaults.standard.string(forKey: "linkPreference").flatMap(LinkPreference.init(rawValue:)) ?? .window
         radioPrefs = Self.loadRadioPrefs()
+        showFuelInTitle = UserDefaults.standard.bool(forKey: Self.titleFuelKey)
         // An alert tone or voice wins: RADIO stops when one starts and goes on after it.
         output.onBusyChanged = { [weak self] busy in
             guard let self else { return }
@@ -232,7 +241,7 @@ final class AppModel: ObservableObject {
     }
 
     var panel: PanelContent { PanelContent(feed, base: baseURL) }
-    var title: StatusBarTitle { StatusBarTitle(feed) }
+    var title: MenuTitle { MenuTitle(feed, showFuel: showFuelInTitle) }
 
     // MARK: Launch at login
 

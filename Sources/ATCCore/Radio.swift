@@ -219,9 +219,14 @@ public struct RadioHint: Equatable, Sendable {
     public var title: String
     /// The last transmission's `head`, or "대기 중" until one is heard.
     public var detail: String
+    /// "TOWER"
+    public var freq: String
+    public var connected: Bool
 
     public init?(_ monitor: RadioMonitor) {
         guard monitor.isOn else { return nil }
+        freq = monitor.prefs.freq.rawValue
+        connected = monitor.connected
         title = "RADIO ● \(monitor.prefs.freq.rawValue)" + (monitor.connected ? "" : " (연결 안 됨)")
         detail = monitor.last?.head ?? "대기 중"
     }

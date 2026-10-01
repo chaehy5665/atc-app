@@ -10,14 +10,12 @@ final class AnnunciatorTests: XCTestCase {
     func testMasterOff() {
         let s = state(nil, a: 12)
         XCTAssertEqual(s, MasterState.off)
-        XCTAssertEqual(s.title, "✈")
     }
 
     func testMasterCaution() {
         let s = state(.caution, c: 4, a: 9)
         XCTAssertEqual(s.light, .caution)
         XCTAssertEqual(s.count, 4)
-        XCTAssertEqual(s.title, "✈ 4")
     }
 
     func testMasterWarningCountsWarningsOnly() {
@@ -25,7 +23,6 @@ final class AnnunciatorTests: XCTestCase {
         let s = state(.warning, w: 2, c: 5)
         XCTAssertEqual(s.light, .warning)
         XCTAssertEqual(s.count, 2)
-        XCTAssertEqual(s.title, "✈ 2")
     }
 
     func testMasterFollowsServerNotCounts() {
