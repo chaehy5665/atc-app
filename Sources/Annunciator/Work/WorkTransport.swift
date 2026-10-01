@@ -24,9 +24,9 @@ final class WorkTransport: GitHubTransport {
     }
 }
 
-/// Gives `GitHubClient` the access token, refreshing it first when it is about to die or after a 401 (the user
-/// token lives 8 hours; the refresh token, 6 months). Refresh needs the client ID and the refresh token only, no
-/// secret (design 11.5). It is an actor because GitHub refresh tokens are single use: two refreshes at once would
+/// Gives `GitHubClient` the access token. An OAuth App token (ATC-303) has no expiry and no refresh token, so it is
+/// returned as is and a 401 ends in `.failed` (sign in again) with no network call. A token that does carry an expiry
+/// and a refresh token is still refreshed before it dies and after a 401, with the client ID only, no secret (design 11.5). It is an actor because GitHub refresh tokens are single use: two refreshes at once would
 /// lose one. Tokens are read from the Keychain once and held in memory until `invalidate()`.
 actor GitHubTokenBroker: GitHubTokenSource {
     private let store: SecretStore

@@ -148,7 +148,7 @@ final class DeviceFlowTests: XCTestCase {
     func testRequestsCarryNoSecret() {
         let r = DeviceFlow.deviceCodeRequest(clientID: "Iv1.abc12345")
         XCTAssertEqual(r.url.absoluteString, "https://github.com/login/device/code")
-        XCTAssertEqual(r.body, "client_id=Iv1.abc12345")
+        XCTAssertEqual(r.body, "client_id=Iv1.abc12345&scope=repo")
         let p = DeviceFlow.pollRequest(clientID: "Iv1.abc12345", deviceCode: "dc")
         XCTAssertEqual(p.body, "client_id=Iv1.abc12345&device_code=dc&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code")
         let rr = DeviceFlow.refreshRequest(clientID: "Iv1.abc12345", refreshToken: "rt")
@@ -200,6 +200,32 @@ final class DeviceFlowTests: XCTestCase {
     func testPollSuccess() {
         let t = DeviceFlow.parsePoll(data(#"{"access_token":"ghu_x","expires_in":28800,"refresh_token":"ghr_y","refresh_token_expires_in":15897600,"token_type":"bearer"}"#), currentInterval: 5)
         XCTAssertEqual(t, .done(TokenSet(accessToken: "ghu_x", refreshToken: "ghr_y", expiresIn: 28800)))
+    }
+
+    func testScopeIsRepoAndNothingElse() {
+        XCTAssertEqual(GitHubAuth.scope, "repo")
+        let body = DeviceFlow.deviceCodeRequest(clientID: "Iv1.abc12345").body
+        XCTAssertTrue(body.hasSuffix("&scope=repo"))
+        for wider in ["read%3Aorg", "workflow", "delete_repo", "user"] { XCTAssertFalse(body.contains(wider), wider) }
+        XCTAssertFalse(DeviceFlow.pollRequest(clientID: "Iv1.abc12345", deviceCode: "dc").body.contains("scope"))
+    }
+
+    func testRevokeHelpPointsAtAuthorizedOAuthApps() {
+        XCTAssertEqual(GitHubAuth.revokeHelpURL.absoluteString, "https://github.com/settings/applications")
+    }
+
+    func testOAuthAppTokenHasNoExpiryAndNoRefreshToken() {
+        let t = DeviceFlow.parsePoll(data(#"{"access_token":"gho_x","token_type":"bearer","scope":"repo"}"#), currentInterval: 5)
+        XCTAssertEqual(t, .done(TokenSet(accessToken: "gho_x", refreshToken: nil, expiresIn: nil)))
+    }
+
+    func testScopeHeaderCheck() {
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: ["x-oauth-scopes": "repo"]), .exact)
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: ["x-oauth-scopes": " repo "]), .exact)
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: ["x-oauth-scopes": "repo, workflow"]), .different(["repo", "workflow"]))
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: ["x-oauth-scopes": "public_repo"]), .different(["public_repo"]))
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: ["x-oauth-scopes": ""]), .different([]))
+        XCTAssertEqual(GitHubAuth.checkScopes(headers: [:]), .unknown)
     }
 
     func testRefresh() {

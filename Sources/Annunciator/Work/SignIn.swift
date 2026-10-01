@@ -23,6 +23,8 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published private(set) var githubPhase: Phase = .signedOut
     @Published private(set) var linearPhase: Phase = .signedOut
     @Published private(set) var githubMessage = ""
+    /// The scope the token has, read once after sign-in (empty when not read this run).
+    @Published private(set) var githubScopeNote = ""
     @Published private(set) var linearMessage = ""
 
     private let store: SecretStore
@@ -103,7 +105,8 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 case .done(let tokens):
                     try save(tokens, service: .github)
                     githubPhase = .signedIn
-                    githubMessage = "로그인됨. 토큰은 8시간 뒤 만료되고, 갱신 토큰으로 이어집니다."
+                    githubMessage = "로그인됨. 이 토큰은 만료되지 않으니, 필요 없으면 GitHub에서 해지하세요."
+                    await checkGitHubScopes(token: tokens.accessToken)
                     return
                 case .failed(let error):
                     fail(.github, Self.describe(error))
@@ -125,7 +128,7 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
         case .malformed: return "GitHub 응답을 읽지 못했습니다."
         case .expired: return "코드가 만료됐습니다. 다시 시작하세요."
         case .denied: return "GitHub에서 거부했습니다."
-        case .flowDisabled: return "GitHub App 설정에서 Device Flow가 꺼져 있습니다."
+        case .flowDisabled: return "GitHub OAuth App 설정에서 Device Flow가 꺼져 있습니다."
         case .other(let s): return "GitHub 오류: " + Redact.text(s)
         }
     }
@@ -134,6 +137,21 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     func openVerification(_ url: URL) {
         guard url.scheme == "https", url.host?.lowercased() == "github.com" else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    /// One GET /user right after sign-in, only to read `X-OAuth-Scopes`. Nothing from the response is logged.
+    private func checkGitHubScopes(token: String) async {
+        guard let (_, response) = try? await session.data(for: GitHubRequests.currentUser.urlRequest(token: token, etag: nil)),
+              let http = response as? HTTPURLResponse else { return }
+        githubScopeNote = Self.describe(GitHubAuth.checkScopes(headers: GitHubParse.lowercased(http.allHeaderFields)))
+    }
+
+    private static func describe(_ c: GitHubAuth.ScopeCheck) -> String {
+        switch c {
+        case .exact: return "scope: \(GitHubAuth.scope)"
+        case .different(let names): return "scope가 다릅니다: " + (names.isEmpty ? "(없음)" : names.joined(separator: ", ")) + " (필요: \(GitHubAuth.scope))"
+        case .unknown: return "scope를 확인하지 못했습니다."
+        }
     }
 
     func openGitHubRevokePage() { NSWorkspace.shared.open(GitHubAuth.revokeHelpURL) }
@@ -229,7 +247,7 @@ final class SignInModel: NSObject, ObservableObject, ASWebAuthenticationPresenta
     /// GitHub cannot be revoked from the app (it needs a client secret): Settings links to the page for that.
     func signOut(_ service: SecretKey.Service) {
         switch service {
-        case .github: githubTask?.cancel(); githubTask = nil
+        case .github: githubTask?.cancel(); githubTask = nil; githubScopeNote = ""
         case .linear: cancelLinearWork()
         }
         let held = service == .linear ? readLinearTokens() : []

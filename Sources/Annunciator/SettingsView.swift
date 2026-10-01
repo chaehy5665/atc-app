@@ -140,7 +140,7 @@ struct SettingsView: View {
         Text("GitHub · Linear").font(.headline)
         Text("앱 자신의 토큰을 Keychain에만 보관합니다. GitHub는 아래 저장소의 PR 목록을 읽습니다. Linear는 아직 로그인만 됩니다.")
             .font(.caption).foregroundStyle(.secondary)
-        TextField("GitHub App client ID", text: $form.githubClientText).onSubmit(applyGitHubClient)
+        TextField("GitHub OAuth App client ID", text: $form.githubClientText).onSubmit(applyGitHubClient)
         if form.githubClientInvalid {
             Text("영문·숫자·. _ - 만 쓸 수 있습니다").font(.caption).foregroundStyle(.red)
         }
@@ -168,6 +168,7 @@ struct SettingsView: View {
             Text("브라우저에서 이 코드를 입력하고 승인하세요.").font(.caption).foregroundStyle(.secondary)
         }
         if !signIn.githubMessage.isEmpty { Text(signIn.githubMessage).font(.caption) }
+        if !signIn.githubScopeNote.isEmpty { Text(signIn.githubScopeNote).font(.caption) }
         TextField("Linear OAuth client ID", text: $form.linearClientText).onSubmit(applyLinearClient)
         if form.linearClientInvalid {
             Text("영문·숫자·- _ 만 쓸 수 있습니다").font(.caption).foregroundStyle(.red)

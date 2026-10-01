@@ -255,6 +255,25 @@ final class TokenPolicyTests: XCTestCase {
         XCTAssertFalse(TokenPolicy.needsRefresh(expiry: nil, now: t0))
     }
 
+    func testNoExpiryAndNoRefreshTokenStoresNeitherAndNeverRefreshesAhead() throws {
+        let store = InMemorySecretStore()
+        try store.write("old-refresh", for: SecretKey(.github, .refresh))
+        try store.write("old-expiry", for: SecretKey(.github, .expiry))
+        try TokenPolicy.save(TokenSet(accessToken: "gho_x", refreshToken: nil, expiresIn: nil), service: .github, in: store, now: t0)
+        XCTAssertEqual(try store.read(SecretKey(.github, .access)), "gho_x")
+        XCTAssertNil(try store.read(SecretKey(.github, .refresh)))
+        XCTAssertNil(try store.read(SecretKey(.github, .expiry)))
+        let stored = TokenPolicy.decode(try store.read(SecretKey(.github, .expiry)))
+        XCTAssertFalse(TokenPolicy.needsRefresh(expiry: stored, now: t0.addingTimeInterval(86_400 * 365)))
+    }
+
+    func testBothTokenShapesStillSave() throws {
+        let store = InMemorySecretStore()
+        try TokenPolicy.save(TokenSet(accessToken: "a", refreshToken: "r", expiresIn: 28_800), service: .github, in: store, now: t0)
+        XCTAssertEqual(try store.read(SecretKey(.github, .refresh)), "r")
+        XCTAssertEqual(TokenPolicy.decode(try store.read(SecretKey(.github, .expiry))), t0.addingTimeInterval(28_800))
+    }
+
     func testExpiryTextRoundTrips() {
         let d = Date(timeIntervalSince1970: 1_790_000_000)
         XCTAssertEqual(TokenPolicy.decode(TokenPolicy.encode(d)), d)
@@ -487,6 +506,15 @@ final class GitHubClientTests: XCTestCase {
         let retried = net.requests.filter { $0.url?.path == "/user" }
         XCTAssertEqual(retried.count, 2)
         XCTAssertEqual(retried[1].value(forHTTPHeaderField: "Authorization"), "Bearer tok-fresh1")
+    }
+
+    func testA401WithNothingToRefreshWithMeansSignInAgain() async {
+        let tokens = FakeTokens()
+        tokens.refreshedResult = .failed
+        let (client, net, _) = makeWith(tokens: tokens) { _ in .init(status: 401) }
+        let s = await client.refresh()
+        XCTAssertEqual(s.status, .needsSignIn)
+        XCTAssertEqual(net.requests.count, 1, "no retry with a token that cannot be refreshed")
     }
 
     func testASecond401MeansSignInAgainAndNothingIsSentUntilReset() async {
