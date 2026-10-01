@@ -149,7 +149,7 @@ atc-app/
 | N3 | App v1: status item with the MASTER light, the popover with lamps, pending, RTS, FUEL and control sessions, click-through to atc tabs, unreachable state, launch at login, `build-app.sh` | N1, N2 | — | M |
 | N4 | Notifications and sound: new WARNING and CALL, the tone, the voice WAV (from `/api/voice/alert`), quiet hours taken from the server's alert settings, a notification click opening the tab | N3 | — | M |
 | R4 | **RADIO monitor** (ATC-173, atc `docs/radio.md` section 4): a Settings switch plays one RADIO frequency (TOWER by default) from atc's `radio` SSE topic and `/api/radio/<id>.wav` through the N4 audio path; alerts win, quiet hours apply, no replay after a reconnect. Popover line, not the title | N4; atc R1, R3 | — | M |
-| N5 | **Design only:** a SUPERVISOR token for write routes (ACK, approve, reject) that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted | D3 | — | — |
+| N5 | **Design only:** a SUPERVISOR token for write routes (ACK, approve, reject) that the app would hold in the Keychain; what it protects, how it rotates, how it is revoked. Not built until adopted. **2026-10-01:** first scope is atc's MERGE route (D12c amended); the draft is atc ATC-250 (`docs/app-token.md` in atc) | D3 | — | — |
 | N6 | Later, by use: a notch view, a separate FUEL status item, an update check against GitHub Releases (the macOS CI job is built, ATC-205) | N3 | varies | — |
 | N7 | **atc window** (section 10): one native window hosting the atc web UI in a `WKWebView`; remembered frame; Dock icon and Cmd-Tab only while open; every click-through (MASTER light, lamps, "Open atc", notifications) opens the right tab inside it; the popover's unreachable state; links outside atc go to the browser | N3; N4's single link opener | — | M |
 | N7a | **In atc:** the web UI recognises the app window (a user-agent suffix) and leaves alert tones, voice callouts and browser notifications to the app there, since N4 plays them natively | N7 | atc auto | S |
@@ -342,7 +342,7 @@ Facts from the public API docs (read 2026-09-30; re-read before each build issue
 ### 11.2 Principles (for this section)
 
 1. **Principle 1 still holds.** The app shows raw GitHub and Linear facts (title, state, CI rollup, review state, mergeability as GitHub reports it). It does not compute CLEARED TO LAND, a LANDING tier, STRANDED or any other atc verdict. Next to a PR it offers a link to the atc view for the decision.
-2. **No merge from the app, ever.** A merge goes through LANDING: MCC, AUTOLAND, or atc's MERGE button at an exact head. An app merge would bypass tiers and INSPECTION. The app does not ask for any permission that would allow it.
+2. **No GitHub merge from the app, ever.** A merge goes through LANDING: MCC, AUTOLAND, or atc's MERGE at an exact head. A GitHub-API merge from the app would bypass tiers and INSPECTION, so the app does not ask for any GitHub permission that would allow it. Once N5 is built, the app may **ask atc** to merge (D12c amended); atc decides.
 3. **Read first, write later, and each write is a separate decision.** GL1 is read only with read-only credentials. A write needs its own step (GL2), its own permission on the token, an explicit click with the target shown, and an entry in the pure `WritePolicy` (11.4). No write happens from a notification, a timer or a background refresh.
 4. **Tokens are the app's own.** Not atc's `gh` token, not `LINEAR_API_KEY`, not a token copied from the host. The Keychain is the only place a token rests.
 5. **The app stays polite to atc's budget.** It polls only while someone looks, uses conditional requests, and stops at a cap (11.5).
@@ -370,7 +370,7 @@ Facts from the public API docs (read 2026-09-30; re-read before each build issue
 
 | Write | Recommendation | Guard |
 |---|---|---|
-| **GitHub merge** (also enabling auto-merge, pushing a branch) | **Never.** Not in `WriteAction`, and not granted on the token | LANDING only. A test asserts `WriteAction` has no merge case |
+| **GitHub merge** (also enabling auto-merge, pushing a branch) | **Never through the GitHub API.** Not in `WriteAction`, and not granted on the token | LANDING only. A test asserts `WriteAction` has no GitHub merge case. A merge **request to atc** (D12c amended, N5) is not a GitHub write: it is an atc write behind N5's token, and atc decides |
 | Linear issue delete, archive, bulk edit | **Never** | Same |
 | Linear state move | **Yes, GL2, off by default (D12d, decided 2026-10-01).** atc's G3 button stays; the app is a second writer within the same limits | Only to Backlog, Todo and Canceled, atc's own limits; Started and Done stay with PRs and `Fixes`. The confirm sheet names the issue, its current state and the target state. The app re-reads the issue right before sending and refuses if the state changed since the list was drawn |
 | Linear comment | **Yes, GL2, off by default (D12d).** A quick note from the Work window | Text typed by the SUPERVISOR; the confirm sheet names the issue; no templates and no text from atc. Scope: see the state move note in 11.5 |
@@ -483,7 +483,7 @@ Each item is a check for the reviews of GL0, GL1 and GL2.
 | **D12** | **Decided 2026-09-30 (by the SUPERVISOR):** the app calls the GitHub and Linear APIs directly with its own tokens in the Keychain. This reverses the non-goal "no network use beyond the atc URL", Principle 2 and D3 for these two hosts only. atc stays read only (N5 unchanged) | — |
 | D12a | What is shown | **Decided 2026-10-01:** PRs and Linear issues by state: counts in the popover, two lists in a Work window. Notifications and the Linear inbox later (11.3) |
 | D12b | Direct or hybrid | **Decided 2026-10-01:** Direct, with swappable models (11.5) |
-| D12c | Merge from the app | **Decided 2026-10-01:** Never. LANDING only (11.2, 11.4) |
+| D12c | Merge from the app | **Decided 2026-10-01:** never through the GitHub API; no GitHub write permission that could merge. **Amended the same day:** the app may ask **atc** to merge, through atc's MERGE route (DUTY G2) with an app token (N5, atc ATC-250, design pending). atc then checks tier, CLEARED and the exact head at that moment and writes the FLIGHT RECORDER, so the merge is still LANDING (11.2, 11.4) |
 | D12d | Other writes | **Decided 2026-10-01, differs from the recommendation:** none in GL1. In GL2 a Linear comment **and a Linear state move** (Backlog, Todo, Canceled only), both off by default behind "Allow writes", with a separate `write` token (11.4, 11.5). No GitHub writes until there is a permission that can't merge |
 | D12e | GitHub auth | **Decided 2026-10-01:** A GitHub App with device flow, read-only permissions, installed on the AIRPORT repos only; not a PAT |
 | D12f | Linear auth | **Decided 2026-10-01:** OAuth 2 with PKCE, scope `read`; not a personal API key. GL2 adds a separate `write` token only while "Allow writes" is on (D12d, 11.5) |
