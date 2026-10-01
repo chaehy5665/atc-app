@@ -3,7 +3,7 @@ import Foundation
 
 // ATC-247 (GL1a): the app's own cap on GitHub requests, and the back-off when GitHub says slow down.
 //
-// Docs read 2026-10-01 (design 11.5): a GitHub App user token draws on the user's own 5,000 an hour, shared with
+// Docs read 2026-10-01 (design 11.5): a GitHub user token (App or OAuth App) draws on the user's own 5,000 an hour, shared with
 // every other app and token of that user, so the cap is 20 percent of it (atc's LOGBOOK keeps its room). A
 // conditional request answered `304` with an Authorization header does not count against the primary limit,
 // so a `304` costs nothing here either. The Mac check compares `x-ratelimit-remaining` around a `304` to confirm.

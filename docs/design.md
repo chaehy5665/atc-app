@@ -365,7 +365,8 @@ Facts from the public API docs (read 2026-09-30; re-read before each build issue
 
 | Topic | What the docs say |
 |---|---|
-| GitHub App device flow | `POST github.com/login/device/code` and `…/login/oauth/access_token` with the `client_id` only, no client secret. Device flow must be enabled in the app's settings |
+| GitHub OAuth App device flow (ATC-303, 2026-10-01) | Same two endpoints and `client_id` only; the request adds `scope=repo`. Device flow must be enabled in the OAuth App's settings. The token has no `expires_in` and no refresh token, so it does not expire. OAuth Apps have no read-only scope for private repositories: `repo` also lets the token write, merge and delete there. `GET /user` needs no `user` scope. Authorized apps are listed (and revoked by hand) at `github.com/settings/applications`; revoking by API needs the client secret. The response header `X-OAuth-Scopes` lists the token's scopes |
+| GitHub App device flow (D12e, reversed) | `POST github.com/login/device/code` and `…/login/oauth/access_token` with the `client_id` only, no client secret. Device flow must be enabled in the app's settings |
 | GitHub App user token | Expires after 8 hours; the refresh token lasts 6 months. Permissions are fine-grained, not scopes: the token has what both the user and the app have, on the repositories where the app is installed |
 | GitHub primary limit | User tokens (PAT, App user token, OAuth App token): 5,000 requests an hour. The page read said these share one bucket per user. **Design for the worst case: shared** (confirmed in the rate-limit docs on 2026-10-01, see 11.5) |
 | GitHub secondary limits | 100 concurrent requests; 900 points a minute per REST endpoint group (GET = 1, write = 5); content creation 80 a minute and 500 an hour. On 403 or 429, honour `retry-after` |
@@ -421,7 +422,7 @@ Facts from the public API docs (read 2026-09-30; re-read before each build issue
 
 ### 11.5 Auth, tokens and the budget
 
-**GitHub: a GitHub App with device flow (recommended), not a PAT, not an OAuth App.**
+**GitHub: a GitHub App with device flow (recommended), not a PAT, not an OAuth App.** *(Reversed 2026-10-01, D12e and "GL0b as built (ATC-303)" below: the app signs in through an OAuth App with scope `repo`. The text under this heading records the original decision; where it differs, GL0b wins.)*
 - **Why:** device flow needs no client secret and no redirect handler, so the bundle holds nothing that could be copied out. The user token expires in 8 hours and is refreshed, so a stolen token is short-lived. Permissions are fine-grained and limited to the repositories where the SUPERVISOR installs the App, unlike an OAuth App's broad `repo` scope.
 - **Permissions for GL1, all read only:** Metadata, Pull requests (read), Commit statuses (read), Checks (read). No write permission in GL1.
 - **Separate from atc's token.** The App has its own identity. The docs read do not show that this gives a separate rate bucket, so the budget below assumes it does not.
@@ -434,7 +435,7 @@ Facts from the public API docs (read 2026-09-30; re-read before each build issue
 - **GL2 scope (D12d).** A comment alone needs only `comments:create`. A state move is an issue update, and the documented scopes (`read`, `write`, `issues:create`, `comments:create`, `admin`) have no narrower one for it, so GL2 asks for `write`. **Verify in the scope docs at GL2 start.** `write` would also allow deleting, archiving and editing issues; the app never sends those, because `WritePolicy` has no such case (tested), but the token could. So the `write` token is requested only after "Allow writes" is turned on, it is a separate Keychain item from the `read` token, and turning the switch off revokes it through Linear's revoke endpoint and deletes it. Reads keep using the `read` token.
 
 **Keychain.**
-- Generic password items, services `dev.atc.annunciator.github` and `dev.atc.annunciator.linear`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, `kSecAttrSynchronizable` false. Access and refresh tokens are separate items.
+- Generic password items, services `dev.atc.annunciator.github` and `dev.atc.annunciator.linear`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, `kSecAttrSynchronizable` false. Access and refresh tokens are separate items. *(GL0b: the GitHub token is now a non-expiring token that can write on private repositories. The accessibility class stays; locking the screen matters more than before.)*
 - Never in a file, `UserDefaults`, the plist, the repository, a log, a crash report, a notification or an environment variable. The `SecretStore` protocol in ATCCore has an in-memory fake for tests; the app's Keychain implementation is small.
 - **A locally built, ad-hoc signed app changes its code signature on every rebuild.** macOS may then ask for the login password before the new build reads the old items. That is a nuisance, not a hole; the alternative (a shared access group) needs a real Developer ID (D2). **PILOT'S DISCRETION:** accept the prompt, document it in the checklist, revisit if it gets in the way (D12i).
 
@@ -500,7 +501,7 @@ Each item is a check for the reviews of GL0, GL1 and GL2.
 | Item | Check |
 |---|---|
 | Token storage | Only the Keychain, this-device-only, no sync. A grep of the app source for `UserDefaults`, `write(to:`, `print`, `NSLog` and `os_log` finds no token |
-| Scope creep | GL1 permissions are the read-only list in 11.5. A new permission or scope needs a PR that changes this section and a SUPERVISOR decision |
+| Scope creep | GitHub asks for scope `repo` and nothing else (GL0b; no `read:org`, `workflow`, `delete_repo`, `user`), tested. GL1 permissions are the read-only list in 11.5. A new permission or scope needs a PR that changes this section and a SUPERVISOR decision |
 | Logging | Every logged string and every error shown in the UI goes through `Redact`; response bodies are never logged; URLs are logged without query strings; the ETag cache is memory only |
 | A shared Mac or a copied app | See 11.5. The bundle holds no secret, and there is no client secret anywhere |
 | Write guard | `WritePolicy` is the only path to a write; the tests in 11.6 fail if a merge, delete or bulk case appears |
@@ -529,7 +530,7 @@ Each item is a check for the reviews of GL0, GL1 and GL2.
 | D12b | Direct or hybrid | **Decided 2026-10-01:** Direct, with swappable models (11.5) |
 | D12c | Merge from the app | **Decided 2026-10-01:** Never. LANDING only (11.2, 11.4). *Decided 2026-10-01 (SUPERVISOR, atc option C):* no merge through the GitHub API; if the app ever merges, it asks atc's MERGE route, which keeps the tier, CLEARED, hold and exact-head checks and the FLIGHT RECORDER line. The token for that is **proposed only** ([atc `docs/app-token.md`](https://github.com/chaehy5665/atc/blob/main/docs/app-token.md), N5). The GitHub token stays without write permission |
 | D12d | Other writes | **Decided 2026-10-01, differs from the recommendation:** none in GL1. In GL2 a Linear comment **and a Linear state move** (Backlog, Todo, Canceled only), both off by default behind "Allow writes", with a separate `write` token (11.4, 11.5). No GitHub writes until there is a permission that can't merge |
-| D12e | GitHub auth | **Decided 2026-10-01:** A GitHub App with device flow, read-only permissions, installed on the AIRPORT repos only; not a PAT |
+| D12e | GitHub auth | ~~**Decided 2026-10-01:** A GitHub App with device flow, read-only permissions, installed on the AIRPORT repos only; not a PAT~~ **Reversed 2026-10-01 (SUPERVISOR, ATC-303):** a GitHub OAuth App with device flow and scope `repo`. Three AIRPORT repositories are private and an OAuth App has no read-only scope for private repositories, so the token can write, merge and delete on every private repository of the account, and it does not expire. Accepted knowingly. The app's own write guard stays the only control; see "GL0b as built" below |
 | D12f | Linear auth | **Decided 2026-10-01:** OAuth 2 with PKCE, scope `read`; not a personal API key. GL2 adds a separate `write` token only while "Allow writes" is on (D12d, 11.5) |
 | D12g | Budget | **Decided 2026-10-01:** Only while the popover or window is open; 60 s; ETags; stop at 1,000 GitHub requests an hour |
 | D12h | Who creates the GitHub App and the Linear OAuth application | **Decided 2026-10-01:** The SUPERVISOR, by hand; client IDs entered in Settings, never committed |
@@ -545,6 +546,21 @@ Each item is a check for the reviews of GL0, GL1 and GL2.
 | Tokens leak through logs, crash reports, a screenshot or the repo | Keychain only, `Redact`, no screenshots (`CLAUDE.md`), the fixture scan |
 | The Work window drifts from atc's FLIGHT and PR drawers | Raw facts only, small lists, a link to atc for decisions; hybrid stays as a fallback |
 | The GL2 Linear `write` token can do more than the app's two writes (delete, archive, edit) | `WritePolicy` is the only write path (tested); the `write` token exists only while "Allow writes" is on and is revoked when it goes off; reads use the `read` token (11.5) |
+| The GitHub OAuth App token (`repo`) can write, merge and delete on private repositories and never expires (ATC-303) | The app sends only GETs to GitHub and `WritePolicy` has no GitHub write case (tested); the token rests only in the Keychain, this device only; sign-out deletes it and points to `github.com/settings/applications` to revoke; Settings shows the scope the token really has |
 | The app ends up with more power than the SUPERVISOR expects | Read only first, each scope a separate decision, a review item per permission |
 | Team sessions can't compile or see the app | As elsewhere: logic in ATCCore with Linux tests, the GL checklist for the Mac |
 | Claims from the docs turn out wrong (shared bucket, `304` not counted, revoke needs a secret) | Each is marked "verify" in 11.1 and 11.5; GL0 checks them before GL1 |
+
+### GL0b as built (ATC-303)
+
+Decided 2026-10-01 by the SUPERVISOR: **D12e is reversed.** GitHub sign-in goes through a GitHub OAuth App with scope `repo`, not a GitHub App with read-only permissions.
+
+- **Why.** Three AIRPORT repositories are private. A GitHub App's fine-grained read-only permissions would need an installation on each of them; an OAuth App is simpler, but it has no read-only scope for private repositories.
+- **The trade-off, accepted.** With `repo`, the token can write, merge and delete on every private repository of the account, and OAuth App tokens do not expire. The only control on what the app sends is the app's own write guard: the app sends only GETs to GitHub, and `WritePolicy` has no GitHub write case (its tests stay). No merge from the app (D12c) is unchanged.
+- **Sign-in.** Same device flow and endpoints, `client_id` only, no client secret. `DeviceFlow.deviceCodeRequest` sends `scope=repo` (`GitHubAuth.scope`, tested; no other scope). "Enable Device Flow" must be ticked on the OAuth App.
+- **Token life.** The response has no `expires_in` and no `refresh_token`: nothing is stored for them, `TokenPolicy.needsRefresh` is false, and no refresh goes out before a request. A 401 returns `.failed` from the broker without a network call and shows "다시 로그인이 필요합니다". The refresh path stays for a token that carries both (it costs nothing); both shapes are tested.
+- **Revoke.** Revoking by API needs the client secret, which the app must not hold. Sign-out deletes the Keychain items (no network) and **GitHub에서 해지…** opens `github.com/settings/applications` (Authorized OAuth Apps).
+- **Scope check.** Once after sign-in the app does one `GET /user` and reads `X-OAuth-Scopes`. Exactly `repo` shows `scope: repo` in Settings; anything else shows the scopes found. The header value is never logged.
+- **Repositories.** An OAuth App has no install step that limits repositories, so the repository list in Settings (UserDefaults) is the only filter on what the app reads.
+- **Keychain.** `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` stays; with a token that does not expire and can write, locking the screen matters more.
+- **Unchanged.** Linear sign-in. The 11.5 rate-limit facts (a user token of either kind draws on the user's 5,000 an hour).

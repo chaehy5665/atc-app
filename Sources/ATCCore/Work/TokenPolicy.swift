@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import Foundation
 
-// ATC-247 (GL1a): when the GitHub user token (8 hours) is refreshed. GL0 stored the refresh token and nothing used it.
+// ATC-247 (GL1a): when a token is refreshed. ATC-303: a GitHub OAuth App token has no expiry and no refresh token,
+// so nothing is stored for them and no refresh goes out ahead of a request; a 401 means sign in again.
 
 public enum TokenPolicy {
     /// Refresh this long before the stored expiry, so a request never goes out with a token about to die.

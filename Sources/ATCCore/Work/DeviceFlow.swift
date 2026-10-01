@@ -4,15 +4,34 @@ import Foundation
 import FoundationNetworking
 #endif
 
-// ATC-246: GitHub App device flow, as pure request building and response parsing.
+// ATC-246: GitHub device flow, as pure request building and response parsing. ATC-303: through an OAuth App, scope `repo`.
 // The app target does the URLSession calls and the sleeping. No client secret anywhere.
 
 public enum GitHubAuth {
     public static let deviceCodeURL = URL(string: "https://github.com/login/device/code")!
     public static let tokenURL = URL(string: "https://github.com/login/oauth/access_token")!
     public static let deviceGrant = "urn:ietf:params:oauth:grant-type:device_code"
-    /// Where the SUPERVISOR revokes or uninstalls the App by hand (GitHub token revocation needs a client secret).
-    public static let revokeHelpURL = URL(string: "https://github.com/settings/apps/authorizations")!
+    /// The one scope asked for, and nothing else. OAuth Apps have no read-only scope for private repositories, so the
+    /// token can write there; the app sending only GETs (no GitHub write path) is the only control (design 11, GL0b).
+    public static let scope = "repo"
+    /// Where the SUPERVISOR revokes the OAuth App by hand (Authorized OAuth Apps; revoking by API needs a client secret).
+    public static let revokeHelpURL = URL(string: "https://github.com/settings/applications")!
+
+    public enum ScopeCheck: Equatable, Sendable {
+        /// `X-OAuth-Scopes` is exactly `repo`.
+        case exact
+        /// Any other value, as the sorted scope names (not secret), to show in Settings.
+        case different([String])
+        /// The header was absent.
+        case unknown
+    }
+
+    /// Reads the `X-OAuth-Scopes` response header (lowercased header map) once after sign-in.
+    public static func checkScopes(headers: [String: String]) -> ScopeCheck {
+        guard let raw = headers["x-oauth-scopes"] else { return .unknown }
+        let names = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.sorted()
+        return names == [scope] ? .exact : .different(names)
+    }
 
     /// A plain safe shape: ASCII letters, digits, `.`, `_`, `-`. Real client IDs are about 20 characters.
     public static func validClientID(_ s: String) -> String? {
@@ -86,7 +105,7 @@ public enum DeviceFlow {
     public static let minInterval = 5
 
     public static func deviceCodeRequest(clientID: String) -> FormRequest {
-        .form(GitHubAuth.deviceCodeURL, [("client_id", clientID)])
+        .form(GitHubAuth.deviceCodeURL, [("client_id", clientID), ("scope", GitHubAuth.scope)])
     }
 
     public static func pollRequest(clientID: String, deviceCode: String) -> FormRequest {
@@ -130,7 +149,7 @@ public enum DeviceFlow {
         return .done(token)
     }
 
-    /// A refresh response: a new token set, or nil on any failure (the caller then asks for a new sign-in).
+    /// For tokens that carry a refresh token (an OAuth App token has none). A refresh response: a new token set, or nil on any failure (the caller then asks for a new sign-in).
     public static func parseRefresh(_ data: Data) -> TokenSet? {
         guard let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any], o["error"] == nil else { return nil }
         return parseToken(o)
