@@ -19,6 +19,8 @@ final class SettingsForm: ObservableObject {
     @Published var linearClientInvalid = false
     @Published var repoText = ""
     @Published var repoRejected: [String] = []
+    @Published var teamText = ""
+    @Published var teamRejected: [String] = []
     @Published var capText = ""
 }
 
@@ -128,6 +130,7 @@ struct SettingsView: View {
             form.githubClientText = signIn.githubClientID
             form.linearClientText = signIn.linearClientID
             form.repoText = work.repoText
+            form.teamText = work.teamText.replacingOccurrences(of: "\n", with: ", ")
             form.capText = String(work.cap)
             form.launchAtLogin = model.launchAtLogin
             form.quietFrom = AppModel.clock(model.notifyPrefs.quiet.from)
@@ -138,7 +141,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var accountsSection: some View {
         Text("GitHub · Linear").font(.headline)
-        Text("앱 자신의 토큰을 Keychain에만 보관합니다. GitHub는 아래 저장소의 PR 목록을 읽습니다. Linear는 아직 로그인만 됩니다.")
+        Text("앱 자신의 토큰을 Keychain에만 보관합니다. GitHub는 아래 저장소의 PR 목록을 읽습니다. Linear는 아래 팀의 열린 이슈를 읽습니다.")
             .font(.caption).foregroundStyle(.secondary)
         TextField("GitHub OAuth App client ID", text: $form.githubClientText).onSubmit(applyGitHubClient)
         if form.githubClientInvalid {
@@ -210,6 +213,22 @@ struct SettingsView: View {
         }
         Text("이번 시간 사용 \(work.usageText). 상한은 \(RateBudget.capRange.lowerBound)~\(RateBudget.capRange.upperBound), 기본 \(RateBudget.defaultCap)(GitHub 한도 5,000의 20%). 304는 세지 않습니다.")
             .font(.caption).foregroundStyle(.secondary)
+        Divider()
+        Text("Linear 이슈 목록 (Work 창)").font(.headline)
+        Text("팀 키를 쉼표나 줄바꿈으로 나눠 적습니다(예: ABC). 읽기 전용(scope read)이고, 팝오버나 Work 창이 열려 있을 때만 60초마다 가져옵니다. Todo(unstarted)와 Started 상태만 읽습니다.")
+            .font(.caption).foregroundStyle(.secondary)
+        TextField("팀 키", text: $form.teamText).onSubmit(applyTeams)
+        if !form.teamRejected.isEmpty {
+            Text("팀 키 형식이 아닙니다(영문 대문자·숫자, 10자 이하): " + form.teamRejected.joined(separator: ", ")).font(.caption).foregroundStyle(.red)
+        }
+        HStack {
+            Button("Apply", action: applyTeams)
+        }
+    }
+
+    private func applyTeams() {
+        form.teamRejected = work.setTeams(form.teamText)
+        if form.teamRejected.isEmpty { form.teamText = work.teamText.replacingOccurrences(of: "\n", with: ", ") }
     }
 
     private func applyRepos() {
