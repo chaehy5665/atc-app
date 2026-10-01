@@ -31,6 +31,7 @@ atc-app(ANNUNCIATOR, macOS 메뉴 막대 앱)을 고치는 세션이 지키는 �
 - GitHub·Linear는 로그인한 뒤 앱 자신의 Keychain 토큰으로만 부른다(design.md 11절, D12). atc의 `gh` 토큰이나 `LINEAR_API_KEY`를 쓰지 않는다. 머지는 앱에서 절대 하지 않는다(LANDING만). 쓰기는 `WritePolicy`에 있는 것(GL2: Linear 댓글과 Backlog·Todo·Canceled 상태 이동)만 한다. 토큰은 Keychain에만 두고, 로그·파일·UserDefaults·fixture에 남기지 않는다.
   - (제안, design.md 11 — SUPERVISOR가 정하기 전까지는 이 줄과 위 "외부 의존성"·네트워크 규칙이 그대로다) GitHub·Linear는 앱이 자기 토큰(Keychain)으로 직접 부른다(D12). 읽기 먼저, **머지는 앱에서 하지 않는다**(LANDING만), 쓰기는 `WritePolicy`에 적힌 것만. 토큰은 Keychain 밖 어디에도(파일·로그·UserDefaults·저장소) 두지 않는다.
 - 서버가 정한 등급·문구·숫자를 그대로 보인다. atc의 규칙을 앱에서 다시 계산하지 않는다.
+- 화면(메뉴 막대 제목, 팝오버, 창)은 atc의 [design-language.md](https://github.com/chaehy5665/atc/blob/main/docs/design-language.md)(원칙, 3.4 ANNUNCIATOR, 3.5 Craft)를 따른다. 아이콘은 SF Symbols만 쓴다. 화면을 바꾸는 PR은 그 문서 5절 점검표 가운데 해당하는 줄에 PR 본문에서 한 줄씩 답한다.
 - 번들 ID와 코드에 실제 이름·이메일·회사명을 넣지 않는다(번들 ID는 `dev.atc.annunciator`).
 - 코드 주석은 영어로 짧게 쓴다.
 
