@@ -18,6 +18,12 @@ if hits=$(grep -rnE "$FORBIDDEN_MACROS" "$root/Sources/Annunciator" --include='*
   echo "Use ObservableObject + @Published + @ObservedObject instead (see README 'Build and run')." >&2
   exit 1
 fi
+# Sign-in code (ATC-246) must not log: a token could ride along in any string. Errors go through Redact.
+if hits=$(grep -rnE 'print\(|NSLog|os_log|Logger\(|debugPrint|dump\(' "$root/Sources/Annunciator/Work" --include='*.swift'); then
+  echo "test-linux: Sources/Annunciator/Work logs; sign-in code must not print or log (design 11.7):" >&2
+  echo "$hits" >&2
+  exit 1
+fi
 mkdir -p "$root/.build/linux"
 
 start=$(date +%s)

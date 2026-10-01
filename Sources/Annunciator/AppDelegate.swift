@@ -127,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func showSettings() {
         popover.performClose(nil)
         if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model, form: SettingsForm(), forward: model.forward)))
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model, form: SettingsForm(), forward: model.forward, signIn: model.signIn)))
             window.title = "ANNUNCIATOR Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
